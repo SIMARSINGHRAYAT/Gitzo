@@ -77,3 +77,8 @@ export interface TokenInfo {
 
 export type AppMode = 'quickdraw_badge' | 'yolo_badge' | 'prs' | 'pair';
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
+export interface DiscussionCategory {
+  id: string;
+  name: string;
+  isAnswerable: boolean;
+}
