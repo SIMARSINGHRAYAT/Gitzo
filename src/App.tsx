@@ -13,7 +13,7 @@ import {
 } from './utils/github';
 import { cn } from './utils/cn';
 import {
-  Github, ChevronDown, Play,
+  Github, Key, ChevronDown, Play,
   CheckCircle2, XCircle, Loader2, AlertTriangle, Lock, Globe,
   Star, AlertCircle, RotateCcw, Sparkles, X,
   ChevronRight, Pause, ShieldCheck, ShieldAlert,
