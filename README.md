@@ -9,7 +9,7 @@ GitHubUpgrade uses GitHub OAuth. It does not accept personal access tokens in th
 1. Open GitHub: avatar menu -> Settings -> Developer settings -> OAuth Apps -> New OAuth App.
 2. Set **Homepage URL** to `https://github-bulk-manager.vercel.app` and **Authorization callback URL** to `https://github-bulk-manager.vercel.app/api/auth/github/callback`.
 3. Create the app, copy its **Client ID**, and generate a **Client Secret**.
-4. In Vercel, open the project -> Settings -> Environment Variables and add `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` for **Production**. Paste the values without quotes, then redeploy.
+4. In Vercel, open the project -> Settings -> Environment Variables and add `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GITHUB_REDIRECT_URI` for **Production**. Set `GITHUB_REDIRECT_URI` to `https://github-bulk-manager.vercel.app/api/auth/github/callback`, paste values without quotes, then redeploy.
 5. The `/api/auth/github` and callback functions handle the OAuth code exchange. Every person with a GitHub account can sign in and only receives access to repositories GitHub grants them.
 
 The OAuth app requests `repo` and `read:user` so the selected repository can be inspected and updated. Access is held in memory by the browser session and is never written to local storage.

@@ -90,6 +90,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
+  const [showAuth, setShowAuth] = useState(false);
   const [delayMs, setDelayMs] = useState(400);
 
   const pauseRef = useRef(false);
@@ -112,6 +113,7 @@ export default function App() {
     const callbackError = params.get('oauth_error') || fragment.get('oauth_error');
     if (!oauthToken && !callbackError) return;
     window.history.replaceState({}, '', window.location.pathname);
+    setShowAuth(true);
     if (callbackError) { setOauthError(callbackError); return; }
     setLoading(true);
     fetchGitHubUser(oauthToken).then(async (githubUser) => {
@@ -321,7 +323,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-purple-500/30 font-sans">
       {/* Header */}
-      <header className="border-b border-white/5 bg-gray-950/80 backdrop-blur-xl sticky top-0 z-50">
+      {(step !== 0 || showAuth) && <header className="border-b border-white/5 bg-gray-950/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4 group cursor-default">
             <div className="w-10 h-10 rounded-xl premium-gradient-purple flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-500">
@@ -346,24 +348,9 @@ export default function App() {
             </div>
           )}
         </div>
-      </header>
+      </header>}
 
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        {/* Stepper */}
-        <div className="flex flex-wrap justify-center sm:justify-start gap-4 mb-20">
-          {['Connect', 'Repository', 'Configure', 'Execute', 'Complete'].map((label, i) => (
-            <div key={label} className="flex items-center gap-4">
-              <div className={cn(
-                'flex items-center gap-3 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all',
-                step === i ? 'bg-white text-gray-950 shadow-2xl scale-110' :
-                step > i ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-white/5 text-gray-700 border border-white/5 opacity-50'
-              )}>
-                {step > i ? <CheckCircle2 className="w-4 h-4" /> : <span className="w-4 h-4 flex items-center justify-center">{i + 1}</span>}
-                <span className="hidden sm:inline">{label}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+      <main className={cn('max-w-6xl mx-auto px-6', step === 0 && !showAuth ? 'min-h-screen flex items-center justify-center py-16' : 'py-12')}>
 
         {(error || oauthError) && (
           <div className="mb-10 glass-card !bg-red-500/5 border-red-500/20 p-5 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500">
@@ -374,14 +361,18 @@ export default function App() {
         )}
 
         {/* STEP 0 */}
-        {step === 0 && (
-          <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
-            <div className="space-y-8 text-left">
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
-              <h2 className="text-5xl sm:text-7xl font-black leading-tight text-white tracking-tight">GitHubUpgrade<span className="text-green-400">.com</span></h2>
-              <p className="text-xl text-gray-400 font-medium leading-relaxed max-w-md mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
-              <p className="text-sm text-gray-600 font-bold uppercase tracking-widest mt-5">Build openly. Contribute boldly.</p>
-            </div>
+        {step === 0 && !showAuth && (
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
+            <h2 className="text-5xl sm:text-8xl font-black leading-tight tracking-tight bg-gradient-to-r from-white via-slate-300 to-slate-500 bg-clip-text text-transparent">GitHubUpgrade<span className="text-green-400">.com</span></h2>
+            <p className="text-xl sm:text-2xl italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
+            <p className="text-sm text-gray-600 font-bold uppercase tracking-widest mt-5">Build openly. Contribute boldly.</p>
+            <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
+          </div>
+        )}
+
+        {step === 0 && showAuth && (
+          <div className="max-w-md mx-auto">
             <div className="glass-card p-10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-48 h-48 premium-gradient-purple blur-[100px] opacity-10"></div>
               <div className="text-center mb-10">
@@ -393,6 +384,7 @@ export default function App() {
                 <button onClick={handleConnect} disabled={loading} className="w-full py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/10 hover:bg-green-400 disabled:opacity-50">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Github className="w-5 h-5" />} {loading ? 'CONNECTING...' : 'SIGN IN VIA GITHUB'} <ExternalLink className="w-4 h-4" />
                 </button>
+                <button onClick={() => setShowAuth(false)} className="w-full py-3 text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Back to welcome</button>
               </div>
             </div>
           </div>
@@ -576,9 +568,9 @@ export default function App() {
         )}
       </main>
 
-      <footer className="py-20 text-center opacity-30">
+      {(step !== 0 || showAuth) && <footer className="py-20 text-center opacity-30">
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubUpgrade.com</p>
-      </footer>
+      </footer>}
     </div>
   );
 }
