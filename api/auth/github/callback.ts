@@ -1,4 +1,4 @@
-import { getRedirectUri } from '../github';
+import { getOrigin, getRedirectUri } from '../config';
 
 export default async function handler(req: any, res: any) {
   const { code, state, error } = req.query;
@@ -32,8 +32,3 @@ function parseCookies(value: string): Record<string, string> {
   }).filter(([key]) => key));
 }
 
-function getOrigin(req: any) {
-  const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const protocol = req.headers['x-forwarded-proto'] || 'https';
-  return `${protocol}://${host}`;
-}
