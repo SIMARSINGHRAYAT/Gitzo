@@ -10,7 +10,7 @@ export default function handler(req: any, res: any) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'repo read:user',
+    scope: 'repo read:user user:email',
     state,
   });
   res.setHeader('Set-Cookie', `github_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);

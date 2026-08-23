@@ -12,6 +12,13 @@ export async function fetchGitHubUser(accessToken: string) {
   return res.json() as Promise<{ login: string; avatar_url: string }>;
 }
 
+export async function fetchPrimaryGitHubEmail(accessToken: string): Promise<string | null> {
+  const res = await ghFetch('/user/emails', accessToken);
+  if (!res.ok) return null;
+  const emails = await res.json() as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+  return emails.find(email => email.primary && email.verified)?.email || emails.find(email => email.verified)?.email || null;
+}
+
 /**
  * Wrapper around fetch that adds GitHub auth headers and handles network errors.
  */
@@ -281,7 +288,8 @@ export async function createFileOnBranch(
   branch: string,
   filePath: string,
   content: string,
-  message: string
+  message: string,
+  author?: { name: string; email: string }
 ) {
   const base = `/repos/${owner}/${repo}`;
   const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -323,7 +331,7 @@ export async function createFileOnBranch(
   // Step 5: Create a new commit
   const newCommitRes = await ghFetch(`${base}/git/commits`, token, {
     method: 'POST',
-    body: JSON.stringify({ message, tree: treeData.sha, parents: [latestCommitSHA] }),
+    body: JSON.stringify({ message, tree: treeData.sha, parents: [latestCommitSHA], ...(author ? { author, committer: author } : {}) }),
     headers: jsonHeaders,
   });
   if (!newCommitRes.ok) await handleGitError(newCommitRes, 'Failed to create commit');
@@ -351,7 +359,8 @@ export async function createMultiFileCommitWithCoAuthors(
   branch: string,
   files: { path: string; content: string }[],
   commitMessage: string,
-  coAuthors: { name: string; email: string }[]
+  coAuthors: { name: string; email: string }[],
+  author?: { name: string; email: string }
 ) {
   if (files.length === 0) throw new Error('No files to commit.');
 
@@ -415,6 +424,7 @@ export async function createMultiFileCommitWithCoAuthors(
       message: fullMessage,
       tree: newTreeSHA,
       parents: [latestCommitSHA],
+      ...(author ? { author, committer: author } : {}),
     }),
     headers: jsonHeaders,
   });

@@ -4,7 +4,7 @@ import type {
   CreatedItem, AppMode, MergeMethod,
 } from './types';
 import {
-  fetchAllRepos, fetchRepoCollaborators, fetchPublicGitHubEmail, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
+  fetchAllRepos, fetchRepoCollaborators, fetchPublicGitHubEmail, fetchPrimaryGitHubEmail, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
   getDefaultBranchSHA, getDefaultBranchSHAWithRetry,
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
@@ -61,6 +61,7 @@ export default function App() {
   const [token, setToken] = useState('');
   const [oauthError, setOauthError] = useState('');
   const [user, setUser] = useState<{ login: string; avatar_url: string } | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Repo state
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -123,9 +124,9 @@ export default function App() {
     setShowAuth(true);
     if (callbackError) { setOauthError(callbackError); return; }
     setLoading(true);
-    fetchGitHubUser(oauthToken).then(async (githubUser) => {
-      setUser(githubUser); setToken(oauthToken);
-      setRepos(await fetchAllRepos(oauthToken)); setStep(1);
+    Promise.all([fetchGitHubUser(oauthToken), fetchPrimaryGitHubEmail(oauthToken), fetchAllRepos(oauthToken)]).then(([githubUser, email, repoData]) => {
+      setUser(githubUser); setUserEmail(email); setToken(oauthToken);
+      setRepos(repoData); setStep(1);
     }).catch((err: Error) => setOauthError(err.message)).finally(() => setLoading(false));
   }, []);
 
@@ -205,6 +206,8 @@ export default function App() {
     }]);
   };
 
+  const commitAuthor = user && userEmail ? { name: user.login, email: userEmail } : undefined;
+
   // ── Workflows ──
   const startQuickdrawBadgeWorkflow = async () => {
     if (!selectedRepo || quickdrawBadgeTemplates.length === 0) return;
@@ -240,7 +243,7 @@ export default function App() {
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'creating', substatus: 'Creating branch...' } : ci));
       await createBranch(token, owner, repo, t.branchName, baseSHA);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Committing with Co-author...' } : ci));
-      await createMultiFileCommitWithCoAuthors(token, owner, repo, t.branchName, [{ path: t.filePath, content: t.fileContent }], t.title, t.coAuthors);
+      await createMultiFileCommitWithCoAuthors(token, owner, repo, t.branchName, [{ path: t.filePath, content: t.fileContent }], t.title, t.coAuthors, commitAuthor);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Opening Pull Request...' } : ci));
       const pr = await createPullRequest(token, owner, repo, t.title, 'YOLO flow — instant merge.', t.branchName, baseBranch);
       const reviewer = t.coAuthors[0].name.trim();
@@ -280,7 +283,7 @@ export default function App() {
          try {
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Creating branch...' } : ci));
            await createBranch(token, owner, repo, pr.branchName, baseSHA);
-           await createFileOnBranch(token, owner, repo, pr.branchName, pr.filePath, pr.fileContent, `Add ${pr.filePath}`);
+          await createFileOnBranch(token, owner, repo, pr.branchName, pr.filePath, pr.fileContent, `Add ${pr.filePath}`, commitAuthor);
            const result = await createPullRequest(token, owner, repo, pr.title, pr.body, pr.branchName, base);
            if (autoMerge) {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
@@ -322,7 +325,7 @@ export default function App() {
          try {
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Creating branch...' } : ci));
            await createBranch(token, owner, repo, pt.branchName, baseSHA);
-           await createMultiFileCommitWithCoAuthors(token, owner, repo, pt.branchName, pt.files, pt.title, pt.coAuthors);
+           await createMultiFileCommitWithCoAuthors(token, owner, repo, pt.branchName, pt.files, pt.title, pt.coAuthors, commitAuthor);
            const result = await createPullRequest(token, owner, repo, pt.title, pt.body, pt.branchName, base);
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
            const mergeState = await waitForMergeable(token, owner, repo, result.number, 15, 1000);
@@ -356,7 +359,7 @@ export default function App() {
   };
   const disconnect = () => {
     cancelRef.current = true; pauseRef.current = false; setIsPaused(false);
-    setStep(0); setShowAuth(false); setToken(''); setUser(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setVerifiedEmails({}); setEmailChecks({}); setCreatedItems([]); setError(''); setOauthError('');
+    setStep(0); setShowAuth(false); setToken(''); setUser(null); setUserEmail(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setVerifiedEmails({}); setEmailChecks({}); setCreatedItems([]); setError(''); setOauthError('');
   };
 
   const successCount = createdItems.filter(i => i.status === 'success' || i.status === 'merged').length;
