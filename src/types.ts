@@ -16,6 +16,13 @@ export interface GitHubRepo {
   };
 }
 
+export interface GitHubCollaborator {
+  id: number;
+  login: string;
+  avatar_url: string;
+  permissions?: { admin?: boolean; push?: boolean; pull?: boolean };
+}
+
 export interface QuickdrawBadgeTemplate {
   id: string;
   title: string;

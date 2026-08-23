@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background-hsl: 220 20% 3%;
-  --card-background: 220 18% 7%;
+  --background-hsl: 0 0% 0%;
+  --card-background: 0 0% 5%;
   --accent-purple: 160 84% 46%;
   --accent-blue: 195 90% 56%;
   --accent-red: 0 85% 60%;
@@ -19,8 +19,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--background-hsl));
-  background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px), radial-gradient(circle at 80% 0%, rgba(24, 184, 145, .12), transparent 30rem), radial-gradient(circle at 0% 80%, rgba(28, 116, 176, .1), transparent 28rem);
-  background-size: 48px 48px, 48px 48px, auto, auto;
+  background-image: radial-gradient(circle at 50% 0%, rgba(24, 184, 145, .1), transparent 32rem), radial-gradient(circle at 0% 100%, rgba(255,255,255,.04), transparent 24rem);
   color: hsl(var(--text-primary));
 }
 

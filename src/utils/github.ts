@@ -1,4 +1,4 @@
-import type { GitHubRepo, MergeMethod, DiscussionCategory } from '../types';
+import type { GitHubRepo, GitHubCollaborator, MergeMethod, DiscussionCategory } from '../types';
 
 const API_VERSION = '2022-11-28';
 
@@ -49,6 +49,21 @@ export async function fetchAllRepos(token: string): Promise<GitHubRepo[]> {
     page++;
   }
   return allRepos;
+}
+
+export async function fetchRepoCollaborators(token: string, owner: string, repo: string): Promise<GitHubCollaborator[]> {
+  const collaborators: GitHubCollaborator[] = [];
+  let page = 1;
+  while (page <= 5) {
+    const res = await ghFetch(`/repos/${owner}/${repo}/collaborators?per_page=100&page=${page}`, token);
+    if (!res.ok) return collaborators;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) break;
+    collaborators.push(...data);
+    if (data.length < 100) break;
+    page++;
+  }
+  return collaborators;
 }
 
 export async function testRepoPermission(

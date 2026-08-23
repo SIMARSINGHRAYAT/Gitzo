@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import type {
-  GitHubRepo, QuickdrawBadgeTemplate, YOLOBadgeTemplate, PRTemplate, PairTemplate, CoAuthor,
+  GitHubRepo, GitHubCollaborator, QuickdrawBadgeTemplate, YOLOBadgeTemplate, PRTemplate, PairTemplate, CoAuthor,
   CreatedItem, AppMode, MergeMethod,
 } from './types';
 import {
-  fetchAllRepos, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
+  fetchAllRepos, fetchRepoCollaborators, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
   getDefaultBranchSHA, getDefaultBranchSHAWithRetry,
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
@@ -69,6 +69,8 @@ export default function App() {
   const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'idle' | 'checking' | 'ok' | 'fail'>('idle');
   const [permissionError, setPermissionError] = useState('');
+  const [collaborators, setCollaborators] = useState<GitHubCollaborator[]>([]);
+  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
 
   // Template state
   const [quickdrawBadgeTemplates, setQuickdrawBadgeTemplates] = useState<QuickdrawBadgeTemplate[]>([]);
@@ -130,14 +132,15 @@ export default function App() {
 
   const handleSelectRepo = async (repo: GitHubRepo) => {
     setSelectedRepo(repo); setRepoDropdownOpen(false); setRepoSearch('');
-    setPermissionStatus('checking'); setPermissionError('');
+    setPermissionStatus('checking'); setPermissionError(''); setCollaborators([]); setCollaboratorsLoading(true);
     try {
       const result = await testRepoPermission(token, repo.owner.login, repo.name);
       setPermissionStatus(result.canCreate ? 'ok' : 'fail');
       if (!result.canCreate) setPermissionError(result.error || 'Cannot write to this repo.');
+      setCollaborators(await fetchRepoCollaborators(token, repo.owner.login, repo.name));
     } catch (err: any) {
       setPermissionStatus('fail'); setError(err.message);
-    }
+    } finally { setCollaboratorsLoading(false); }
   };
 
   const generateQuickdrawBadge = () => {
@@ -321,36 +324,8 @@ export default function App() {
 
   // ── RENDER ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 selection:bg-purple-500/30 font-sans">
-      {/* Header */}
-      {(step !== 0 || showAuth) && <header className="border-b border-white/5 bg-gray-950/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4 group cursor-default">
-            <div className="w-10 h-10 rounded-xl premium-gradient-purple flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-500">
-              <Github className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">GitHubUpgrade.com</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600">Achievement workflow studio</p>
-              </div>
-            </div>
-          </div>
-          {user && (
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2 border border-white/5">
-                <img src={user.avatar_url} alt="" className="w-6 h-6 rounded-full border border-white/10" />
-                <span className="text-xs font-bold text-gray-300">{user.login}</span>
-                <span className="text-[9px] font-black uppercase text-green-400">OAuth connected</span>
-              </div>
-              <button onClick={disconnect} className="p-2 rounded-lg bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"><XCircle className="w-5 h-5" /></button>
-            </div>
-          )}
-        </div>
-      </header>}
-
-      <main className={cn('max-w-6xl mx-auto px-6', step === 0 && !showAuth ? 'min-h-screen flex items-center justify-center py-16' : 'py-12')}>
+    <div className="min-h-screen bg-black text-gray-100 selection:bg-purple-500/30 font-sans">
+      <main className={cn('max-w-6xl mx-auto px-6', step === 0 ? 'min-h-screen flex items-center justify-center py-16' : 'py-12')}>
 
         {(error || oauthError) && (
           <div className="mb-10 glass-card !bg-red-500/5 border-red-500/20 p-5 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500">
@@ -366,7 +341,6 @@ export default function App() {
             <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
             <h2 className="text-5xl sm:text-8xl font-black leading-tight tracking-tight bg-gradient-to-r from-white via-slate-300 to-slate-500 bg-clip-text text-transparent">GitHubUpgrade<span className="text-green-400">.com</span></h2>
             <p className="text-xl sm:text-2xl italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
-            <p className="text-sm text-gray-600 font-bold uppercase tracking-widest mt-5">Build openly. Contribute boldly.</p>
             <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
           </div>
         )}
@@ -393,6 +367,9 @@ export default function App() {
         {/* STEP 1 */}
         {step === 1 && (
           <div className="max-w-3xl mx-auto staggered-list text-left">
+            <div className="flex justify-end mb-5">
+              <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
+            </div>
             <div className="glass-card p-10 lg:p-14 relative overflow-hidden">
               <div className="flex items-center gap-6 mb-12">
                 <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10"><Globe className="w-7 h-7 text-blue-400" /></div>
@@ -411,7 +388,8 @@ export default function App() {
                     <div className="p-4 border-b border-white/5 bg-white/5">
                        <input type="text" autoFocus value={repoSearch} onChange={e => setRepoSearch(e.target.value)} placeholder="Filter results..." className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none placeholder:text-gray-700" />
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
+                    <div className="max-h-72 overflow-y-auto overscroll-contain">
+                      {filteredRepos.length === 0 && <div className="px-6 py-8 text-center text-xs font-bold text-gray-600">No repositories found</div>}
                       {filteredRepos.map(r => (
                         <div key={r.id} onClick={() => handleSelectRepo(r)} className="px-6 py-4 hover:bg-white/5 cursor-pointer flex items-center justify-between border-b border-white/5 last:border-0">
                           <div className="flex items-center gap-4">
@@ -451,6 +429,10 @@ export default function App() {
         {/* STEP 2 */}
         {step === 2 && selectedRepo && (
            <div className="max-w-5xl mx-auto space-y-10 text-left">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-500">Choose an achievement workflow</p>
+                <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
+              </div>
               <div className="flex gap-2 flex-wrap">
                 {[
                   { id: 'quickdraw_badge', label: 'QuickDraw', icon: Sparkles },
@@ -485,9 +467,12 @@ export default function App() {
                        {appMode === 'yolo_badge' && (
                          <div className="space-y-6 w-full">
                             <div className="grid grid-cols-2 gap-4">
-                               <div className="space-y-2">
+                              <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Reviewer Username</label>
-                                  <input value={coAuthors[0].name} onChange={e => updateCoAuthor(0, 'name', e.target.value)} placeholder="octocat" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <select value={coAuthors[0].name} onChange={e => updateCoAuthor(0, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
+                                    <option value="">{collaboratorsLoading ? 'Loading collaborators...' : collaborators.length ? 'Select collaborator' : 'No collaborators found'}</option>
+                                    {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
+                                  </select>
                                </div>
                                <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Git Email</label>
@@ -509,7 +494,10 @@ export default function App() {
                             <div className="p-6 glass-card !bg-amber-500/5 border-amber-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Credit collaborators with co-authored commits and merged pull requests for Pair Extraordinaire.</div>
                             {coAuthors.map((ca, i) => (
                                <div key={i} className="flex gap-2">
-                                  <input value={ca.name} onChange={e => updateCoAuthor(i, 'name', e.target.value)} placeholder="User" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <select value={ca.name} onChange={e => updateCoAuthor(i, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
+                                    <option value="">{collaboratorsLoading ? 'Loading...' : collaborators.length ? 'Select collaborator' : 'No collaborators'}</option>
+                                    {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
+                                  </select>
                                   <input value={ca.email} onChange={e => updateCoAuthor(i, 'email', e.target.value)} placeholder="Email" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
                                   <button onClick={() => removeCoAuthor(i)} className="px-3 text-red-500"><X className="w-4 h-4" /></button>
                                </div>
@@ -568,9 +556,11 @@ export default function App() {
         )}
       </main>
 
-      {(step !== 0 || showAuth) && <footer className="py-20 text-center opacity-30">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubUpgrade.com</p>
-      </footer>}
+      {(step !== 0 || showAuth) && (
+        <footer className="py-20 text-center opacity-30">
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubUpgrade.com</p>
+        </footer>
+      )}
     </div>
   );
 }
