@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { getRedirectUri } from './config';
+import { getRedirectUri } from '../config';
 
 export default function handler(req: any, res: any) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,4 +17,3 @@ export default function handler(req: any, res: any) {
   res.setHeader('Set-Cookie', `github_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`);
   return res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
 }
-
