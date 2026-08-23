@@ -489,6 +489,30 @@ export async function requestPRReview(
   return res.json();
 }
 
+export async function verifyMergedPullRequest(token: string, owner: string, repo: string, pullNumber: number) {
+  const res = await ghFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`, token);
+  if (!res.ok) await handleGitError(res, `Failed to verify PR #${pullNumber}`);
+  const data = await res.json() as { merged?: boolean; merged_at?: string | null; merge_commit_sha?: string | null };
+  if (!data.merged || !data.merged_at) throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
+  return data;
+}
+
+export async function verifyCoAuthorTrailer(
+  token: string,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  coAuthors: { name: string; email: string }[]
+) {
+  const res = await ghFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}/commits?per_page=100`, token);
+  if (!res.ok) await handleGitError(res, `Failed to verify commits for PR #${pullNumber}`);
+  const commits = await res.json() as Array<{ commit?: { message?: string } }>;
+  const messages = commits.map(commit => commit.commit?.message || '').join('\n');
+  const missing = coAuthors.find(coAuthor => !messages.toLowerCase().includes(`co-authored-by: ${coAuthor.name} <${coAuthor.email}>`.toLowerCase()));
+  if (missing) throw new Error(`GitHub did not record the co-author trailer for ${missing.name}. Check that the email belongs to that GitHub account.`);
+  return true;
+}
+
 /**
  * Wait for a PR to become mergeable by polling its status.
  */

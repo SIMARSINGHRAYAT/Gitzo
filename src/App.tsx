@@ -8,7 +8,7 @@ import {
   getDefaultBranchSHA, getDefaultBranchSHAWithRetry,
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
-  waitForMergeable, mergePullRequest, deleteBranch,
+  waitForMergeable, mergePullRequest, verifyMergedPullRequest, verifyCoAuthorTrailer, deleteBranch,
   createIssue, closeIssue, requestPRReview
 } from './utils/github';
 import { cn } from './utils/cn';
@@ -253,6 +253,7 @@ export default function App() {
       await waitForMergeable(token, owner, repo, pr.number, 15, 1000);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Merging instantly...' } : ci));
       await mergePullRequest(token, owner, repo, pr.number, 'merge', 3);
+      await verifyMergedPullRequest(token, owner, repo, pr.number);
       try { await deleteBranch(token, owner, repo, t.branchName); } catch {}
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'merged', merged: true, substatus: undefined } : ci));
     } catch (err: any) {
@@ -283,8 +284,11 @@ export default function App() {
            const result = await createPullRequest(token, owner, repo, pr.title, pr.body, pr.branchName, base);
            if (autoMerge) {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
-             await waitForMergeable(token, owner, repo, result.number, 15, 1000);
-             await mergePullRequest(token, owner, repo, result.number, mergeMethod, 3);
+             const mergeState = await waitForMergeable(token, owner, repo, result.number, 15, 1000);
+             if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
+             const mergeResult = await mergePullRequest(token, owner, repo, result.number, mergeMethod, 3);
+             if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
+             await verifyMergedPullRequest(token, owner, repo, result.number);
              if (deleteBranchAfterMerge) try { await deleteBranch(token, owner, repo, pr.branchName); } catch {}
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merged', merged: true, substatus: undefined, url: result.html_url, number: result.number } : ci));
              try { await delay(500); baseSHA = await getDefaultBranchSHAWithRetry(token, owner, repo, base, baseSHA, 3, 1000); } catch {}
@@ -321,8 +325,12 @@ export default function App() {
            await createMultiFileCommitWithCoAuthors(token, owner, repo, pt.branchName, pt.files, pt.title, pt.coAuthors);
            const result = await createPullRequest(token, owner, repo, pt.title, pt.body, pt.branchName, base);
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
-           await waitForMergeable(token, owner, repo, result.number, 15, 1000);
-           await mergePullRequest(token, owner, repo, result.number, 'merge', 3);
+           const mergeState = await waitForMergeable(token, owner, repo, result.number, 15, 1000);
+           if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
+           const mergeResult = await mergePullRequest(token, owner, repo, result.number, 'merge', 3);
+           if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
+           await verifyMergedPullRequest(token, owner, repo, result.number);
+           await verifyCoAuthorTrailer(token, owner, repo, result.number, pt.coAuthors);
            if (deleteBranchAfterMerge) try { await deleteBranch(token, owner, repo, pt.branchName); } catch {}
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merged', merged: true, substatus: undefined, url: result.html_url, number: result.number } : ci));
            try { await delay(500); baseSHA = await getDefaultBranchSHAWithRetry(token, owner, repo, base, baseSHA, 3, 1000); } catch {}
