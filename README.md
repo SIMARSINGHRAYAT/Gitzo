@@ -12,7 +12,7 @@ GitHubUpgrade uses GitHub OAuth. It does not accept personal access tokens in th
 4. In Vercel, open the project -> Settings -> Environment Variables and add `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GITHUB_REDIRECT_URI` for **Production**. Set `GITHUB_REDIRECT_URI` to `https://github-bulk-manager.vercel.app/api/auth/github/callback`, paste values without quotes, then redeploy.
 5. The `/api/auth/github` and callback functions handle the OAuth code exchange. Every person with a GitHub account can sign in and only receives access to repositories GitHub grants them.
 
-The OAuth app requests `repo`, `read:user`, and `user:email` so the selected repository can be inspected and updated and generated commits can use the authenticated account's verified email. Existing users must authorize the updated scope again. Access is held in memory by the browser session and is never written to local storage.
+The OAuth app requests `repo` and `user`. GitHub's `repo` scope includes public/private repository code, commit statuses, invitations, collaborators, deployment statuses, and repository webhooks. GitHub's `user` scope includes profile and email access, allowing generated commits to use the authenticated account's verified email. Existing users must authorize the updated scope again. Access is held in memory by the browser session and is never written to local storage.
 
 
 ![Technical Flow Diagram](img/a.png)
