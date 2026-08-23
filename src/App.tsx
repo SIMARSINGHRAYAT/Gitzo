@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type {
   GitHubRepo, QuickdrawBadgeTemplate, YOLOBadgeTemplate, PRTemplate, PairTemplate, CoAuthor,
-  CreatedItem, TokenInfo, AppMode, MergeMethod,
+  CreatedItem, AppMode, MergeMethod,
 } from './types';
 import {
-  detectTokenType, validateToken, fetchAllRepos, testRepoPermission,
+  fetchAllRepos, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
   getDefaultBranchSHA, getDefaultBranchSHAWithRetry,
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
@@ -13,12 +13,12 @@ import {
 } from './utils/github';
 import { cn } from './utils/cn';
 import {
-  Github, Key, Search, ChevronDown, Plus, Trash2, Play,
+  Github, ChevronDown, Play,
   CheckCircle2, XCircle, Loader2, AlertTriangle, Lock, Globe,
   Star, AlertCircle, RotateCcw, Sparkles, X,
-  ChevronRight, Pause, Download, ShieldCheck, ShieldAlert,
+  ChevronRight, Pause, ShieldCheck, ShieldAlert,
   GitPullRequest, GitMerge, GitBranch, Eye, EyeOff, Users, Award,
-  Rocket,
+  Rocket, LogIn, ExternalLink,
 } from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────────────
@@ -59,9 +59,7 @@ function validatePairConfig(coAuthors: CoAuthor[], templates: PairTemplate[]): s
 export default function App() {
   // Auth state
   const [token, setToken] = useState('');
-  const [tokenInput, setTokenInput] = useState('');
-  const [showToken, setShowToken] = useState(false);
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
+  const [oauthError, setOauthError] = useState('');
   const [user, setUser] = useState<{ login: string; avatar_url: string } | null>(null);
 
   // Repo state
@@ -107,26 +105,26 @@ export default function App() {
   }, []);
 
   // ── Actions ──
-  const handleConnect = useCallback(async () => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) return;
-    setLoading(true); setError('');
-    try {
-      const result = await validateToken(trimmed);
-      if (!result) { setError('Invalid token. Please check and try again.'); return; }
-      const { user: u, tokenInfo: t } = result;
-      if (t.type === 'classic' && !t.hasRepoScope) {
-        setError(`Classic token missing "repo" scope. Scopes found: [${t.scopes.join(', ') || 'none'}].`);
-        return;
-      }
-      setUser(u); setToken(trimmed); setTokenInfo(t);
-      const repoData = await fetchAllRepos(trimmed);
-      setRepos(repoData);
-      setStep(1);
-    } catch (err: any) {
-      setError(err.message || 'Connection failed.');
-    } finally { setLoading(false); }
-  }, [tokenInput]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fragment = new URLSearchParams(window.location.hash.slice(1));
+    const oauthToken = fragment.get('oauth_token');
+    const callbackError = params.get('oauth_error') || fragment.get('oauth_error');
+    if (!oauthToken && !callbackError) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    if (callbackError) { setOauthError(callbackError); return; }
+    setLoading(true);
+    fetchGitHubUser(oauthToken).then(async (githubUser) => {
+      setUser(githubUser); setToken(oauthToken);
+      setRepos(await fetchAllRepos(oauthToken)); setStep(1);
+    }).catch((err: Error) => setOauthError(err.message)).finally(() => setLoading(false));
+  }, []);
+
+  const handleConnect = () => {
+    setOauthError('');
+    try { window.location.assign(getGitHubOAuthUrl()); }
+    catch (err) { setOauthError(err instanceof Error ? err.message : 'Unable to start GitHub OAuth.'); }
+  };
 
   const handleSelectRepo = async (repo: GitHubRepo) => {
     setSelectedRepo(repo); setRepoDropdownOpen(false); setRepoSearch('');
@@ -236,7 +234,7 @@ export default function App() {
     if (!selectedRepo) return;
     const vError = validatePRConfig(prTemplates); if (vError) { setError(vError); return; }
     setStep(3); setIsCreating(true);
-    const items: CreatedItem[] = prTemplates.map(p => ({ id: p.id, title: p.title, type: 'prs', status: 'pending', branchName: p.branchName }));
+    const items: CreatedItem[] = prTemplates.map(p => ({ id: p.id, title: p.title, type: 'pull_shark', status: 'pending', branchName: p.branchName }));
     setCreatedItems(items);
     const owner = selectedRepo.owner.login; const repo = selectedRepo.name; const base = selectedRepo.default_branch;
     try {
@@ -272,7 +270,7 @@ export default function App() {
     if (!selectedRepo) return;
     const vError = validatePairConfig(coAuthors, pairTemplates); if (vError) { setError(vError); return; }
     setStep(3); setIsCreating(true);
-    const items: CreatedItem[] = pairTemplates.map(p => ({ id: p.id, title: p.title, type: 'pair', status: 'pending', branchName: p.branchName }));
+    const items: CreatedItem[] = pairTemplates.map(p => ({ id: p.id, title: p.title, type: 'pair_extraordinaire', status: 'pending', branchName: p.branchName }));
     setCreatedItems(items);
     const owner = selectedRepo.owner.login; const repo = selectedRepo.name; const base = selectedRepo.default_branch;
     try {
@@ -303,17 +301,17 @@ export default function App() {
   const handleStart = () => {
     if (appMode === 'quickdraw_badge') startQuickdrawBadgeWorkflow();
     else if (appMode === 'yolo_badge') startYOLOBadgeWorkflow();
-    else if (appMode === 'prs') startCreatingPRs();
-    else if (appMode === 'pair') startCreatingPairs();
+    else if (appMode === 'pull_shark') startCreatingPRs();
+    else if (appMode === 'pair_extraordinaire') startCreatingPairs();
   };
 
   const reset = () => { setStep(2); setCreatedItems([]); setQuickdrawBadgeTemplates([]); setYOLOBadgeTemplates([]); setPRTemplates([]); setPairTemplates([]); setError(''); };
-  const disconnect = () => { setStep(0); setToken(''); setTokenInput(''); setUser(null); setRepos([]); setStep(0); reset(); };
+  const disconnect = () => { setStep(0); setToken(''); setUser(null); setRepos([]); setStep(0); reset(); };
 
   const successCount = createdItems.filter(i => i.status === 'success' || i.status === 'merged').length;
   const errorCount = createdItems.filter(i => i.status === 'error').length;
   const progressPct = createdItems.length > 0 ? ((successCount + errorCount) / createdItems.length) * 100 : 0;
-  const queueCount = appMode === 'quickdraw_badge' ? quickdrawBadgeTemplates.length : appMode === 'yolo_badge' ? yoloBadgeTemplates.length : appMode === 'prs' ? prTemplates.length : pairTemplates.length;
+  const queueCount = appMode === 'quickdraw_badge' ? quickdrawBadgeTemplates.length : appMode === 'yolo_badge' ? yoloBadgeTemplates.length : appMode === 'pull_shark' ? prTemplates.length : pairTemplates.length;
   const filteredRepos = repos.filter(r => r.full_name.toLowerCase().includes(repoSearch.toLowerCase()));
 
   const togglePause = () => { pauseRef.current = !pauseRef.current; setIsPaused(!isPaused); };
@@ -330,10 +328,10 @@ export default function App() {
               <Github className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">GITHUB BULK MANAGER</h1>
+              <h1 className="text-lg font-black tracking-tighter bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">GitHubUpgrade.com</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600">Premium Achievement Suite</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600">Achievement workflow studio</p>
               </div>
             </div>
           </div>
@@ -342,7 +340,7 @@ export default function App() {
               <div className="hidden sm:flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2 border border-white/5">
                 <img src={user.avatar_url} alt="" className="w-6 h-6 rounded-full border border-white/10" />
                 <span className="text-xs font-bold text-gray-300">{user.login}</span>
-                {tokenInfo && <span className="text-[9px] font-black uppercase text-purple-400">{tokenInfo.type}</span>}
+                <span className="text-[9px] font-black uppercase text-green-400">OAuth connected</span>
               </div>
               <button onClick={disconnect} className="p-2 rounded-lg bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all"><XCircle className="w-5 h-5" /></button>
             </div>
@@ -367,11 +365,11 @@ export default function App() {
           ))}
         </div>
 
-        {error && (
+        {(error || oauthError) && (
           <div className="mb-10 glass-card !bg-red-500/5 border-red-500/20 p-5 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500">
             <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm text-red-300 font-medium whitespace-pre-wrap">{error}</div>
-            <button onClick={() => setError('')} className="text-red-500/50 hover:text-red-500"><X className="w-5 h-5" /></button>
+            <div className="flex-1 text-sm text-red-300 font-medium whitespace-pre-wrap">{error || oauthError}</div>
+            <button onClick={() => { setError(''); setOauthError(''); }} className="text-red-500/50 hover:text-red-500"><X className="w-5 h-5" /></button>
           </div>
         )}
 
@@ -379,22 +377,21 @@ export default function App() {
         {step === 0 && (
           <div className="max-w-5xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
             <div className="space-y-8 text-left">
-              <h2 className="text-5xl sm:text-7xl font-black leading-tight text-white tracking-widest">ELEVATE<br/><span className="text-purple-500">PROFILES.</span></h2>
-              <p className="text-lg text-gray-500 font-medium leading-relaxed max-w-md">Automate complex GitHub workflows, secure achievements, and streamline repository management with a professional-grade interface.</p>
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
+              <h2 className="text-5xl sm:text-7xl font-black leading-tight text-white tracking-tight">GitHubUpgrade<span className="text-green-400">.com</span></h2>
+              <p className="text-xl text-gray-400 font-medium leading-relaxed max-w-md mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
+              <p className="text-sm text-gray-600 font-bold uppercase tracking-widest mt-5">Build openly. Contribute boldly.</p>
             </div>
             <div className="glass-card p-10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-48 h-48 premium-gradient-purple blur-[100px] opacity-10"></div>
               <div className="text-center mb-10">
                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"><Key className="w-8 h-8 text-white" /></div>
-                 <h3 className="text-xl font-black text-white tracking-widest uppercase">AUTHENTICATION</h3>
+                 <h3 className="text-xl font-black text-white tracking-widest uppercase">Welcome aboard</h3>
               </div>
               <div className="space-y-6">
-                <div className="relative">
-                  <input type={showToken ? 'text' : 'password'} value={tokenInput} onChange={e => setTokenInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleConnect()} placeholder="ghp_xxxx..." className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4.5 text-sm text-white placeholder:text-gray-700 focus:outline-none focus:border-purple-500/50 pr-16 font-mono" />
-                  <button onClick={() => setShowToken(!showToken)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white">{showToken ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button>
-                </div>
-                <button onClick={handleConnect} disabled={loading || !tokenInput.trim()} className={cn('w-full py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3', loading || !tokenInput.trim() ? 'bg-white/5 text-gray-700 cursor-not-allowed border border-white/5' : 'premium-gradient-purple text-white shadow-xl shadow-purple-500/30')}>
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />} {loading ? 'VALIDATING...' : 'AUTHORIZE SESSION'}
+                <p className="text-sm text-gray-500 leading-relaxed">Sign in securely with GitHub OAuth. GitHubUpgrade never asks you to paste or manage a personal access token.</p>
+                <button onClick={handleConnect} disabled={loading} className="w-full py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/10 hover:bg-green-400 disabled:opacity-50">
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Github className="w-5 h-5" />} {loading ? 'CONNECTING...' : 'SIGN IN VIA GITHUB'} <ExternalLink className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -466,8 +463,8 @@ export default function App() {
                 {[
                   { id: 'quickdraw_badge', label: 'QuickDraw', icon: Sparkles },
                   { id: 'yolo_badge', label: 'YOLO Badge', icon: Rocket },
-                  { id: 'prs', label: 'Pull Requests', icon: GitPullRequest },
-                  { id: 'pair', label: 'Pair Suite', icon: Award }
+                  { id: 'pull_shark', label: 'Pull Shark', icon: GitPullRequest },
+                  { id: 'pair_extraordinaire', label: 'Pair Extraordinaire', icon: Award }
                 ].map(mode => (
                   <button key={mode.id} onClick={() => setAppMode(mode.id as any)} className={cn("px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-3", appMode === mode.id ? "bg-white text-gray-950 border-white shadow-xl" : "bg-white/5 border-white/5 text-gray-600 hover:text-white")}>
                     <mode.icon className="w-4 h-4" /> {mode.label}
@@ -479,8 +476,8 @@ export default function App() {
                  <div className="glass-card p-10 flex flex-col items-center justify-center text-center opacity-60 hover:opacity-100 transition-opacity">
                     {appMode === 'quickdraw_badge' && <Sparkles className="w-20 h-20 text-purple-500 mb-8" />}
                     {appMode === 'yolo_badge' && <Rocket className="w-20 h-20 text-red-500 mb-8" />}
-                    {appMode === 'prs' && <GitPullRequest className="w-20 h-20 text-green-500 mb-8" />}
-                    {appMode === 'pair' && <Award className="w-20 h-20 text-amber-500 mb-8" />}
+                    {appMode === 'pull_shark' && <GitPullRequest className="w-20 h-20 text-green-500 mb-8" />}
+                    {appMode === 'pair_extraordinaire' && <Award className="w-20 h-20 text-amber-500 mb-8" />}
                     <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">{appMode.replace('_', ' ')}</h3>
                     <p className="text-sm text-gray-600 font-medium leading-relaxed">Node based orchestration for {appMode.replace('_', ' ')} achievement triggers.</p>
                  </div>
@@ -508,14 +505,16 @@ export default function App() {
                             <button onClick={generateYOLOBadge} className="w-full py-5 rounded-2xl bg-gradient-to-r from-red-600 to-orange-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl">BUILD YOLO FLOW</button>
                          </div>
                        )}
-                       {appMode === 'prs' && (
+                       {appMode === 'pull_shark' && (
                          <div className="space-y-6 w-full">
+                           <div className="p-6 glass-card !bg-green-500/5 border-green-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Create authentic pull requests in your selected repository to progress the Pull Shark achievement.</div>
                            <button onClick={() => setAutoMerge(!autoMerge)} className="w-full py-4 text-xs font-black uppercase tracking-widest border border-white/10 rounded-2xl text-gray-400">AUTO-MERGE: {autoMerge ? 'ON' : 'OFF'}</button>
-                           <button onClick={generatePRs} className="w-full py-5 rounded-2xl premium-gradient-green text-white font-black text-xs uppercase tracking-widest">GENERATE BATCH</button>
+                           <button onClick={generatePRs} className="w-full py-5 rounded-2xl premium-gradient-green text-white font-black text-xs uppercase tracking-widest">GENERATE PULL REQUESTS</button>
                          </div>
                        )}
-                       {appMode === 'pair' && (
+                       {appMode === 'pair_extraordinaire' && (
                          <div className="space-y-6 w-full">
+                            <div className="p-6 glass-card !bg-amber-500/5 border-amber-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Credit collaborators with co-authored commits and merged pull requests for Pair Extraordinaire.</div>
                             {coAuthors.map((ca, i) => (
                                <div key={i} className="flex gap-2">
                                   <input value={ca.name} onChange={e => updateCoAuthor(i, 'name', e.target.value)} placeholder="User" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
@@ -578,7 +577,7 @@ export default function App() {
       </main>
 
       <footer className="py-20 text-center opacity-30">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GITHUB BULK MANAGER • VISUAL STANDARD VERIFIED</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubUpgrade.com</p>
       </footer>
     </div>
   );

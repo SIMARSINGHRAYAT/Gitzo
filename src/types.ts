@@ -57,7 +57,7 @@ export interface PairTemplate {
 export interface CreatedItem {
   id: string;
   title: string;
-  type: 'quickdraw_badge' | 'yolo_badge' | 'prs' | 'pair';
+  type: 'quickdraw_badge' | 'yolo_badge' | 'pull_shark' | 'pair_extraordinaire';
   status: 'pending' | 'creating' | 'merging' | 'success' | 'merged' | 'error';
   substatus?: string;
   url?: string;
@@ -67,15 +67,7 @@ export interface CreatedItem {
   branchName?: string;
 }
 
-export type TokenType = 'classic' | 'fine-grained' | 'unknown';
-
-export interface TokenInfo {
-  type: TokenType;
-  scopes: string[];
-  hasRepoScope: boolean;
-}
-
-export type AppMode = 'quickdraw_badge' | 'yolo_badge' | 'prs' | 'pair';
+export type AppMode = 'quickdraw_badge' | 'yolo_badge' | 'pull_shark' | 'pair_extraordinaire';
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
 export interface DiscussionCategory {
   id: string;

@@ -1,6 +1,16 @@
-import type { TokenType, TokenInfo, GitHubRepo, MergeMethod, DiscussionCategory } from '../types';
+import type { GitHubRepo, MergeMethod, DiscussionCategory } from '../types';
 
 const API_VERSION = '2022-11-28';
+
+export function getGitHubOAuthUrl() {
+  return '/api/auth/github';
+}
+
+export async function fetchGitHubUser(accessToken: string) {
+  const res = await ghFetch('/user', accessToken);
+  if (!res.ok) throw new Error('GitHub OAuth session could not be verified.');
+  return res.json() as Promise<{ login: string; avatar_url: string }>;
+}
 
 /**
  * Wrapper around fetch that adds GitHub auth headers and handles network errors.
@@ -21,31 +31,6 @@ export async function ghFetch(path: string, token: string, options?: RequestInit
     const message = err instanceof Error ? err.message : 'Network request failed';
     throw new Error(`NETWORK_ERROR: ${message}`);
   }
-}
-
-export function detectTokenType(token: string): TokenType {
-  if (token.startsWith('ghp_')) return 'classic';
-  if (token.startsWith('github_pat_')) return 'fine-grained';
-  if (token.startsWith('gho_') || token.startsWith('ghu_') || token.startsWith('ghs_')) return 'classic';
-  return 'unknown';
-}
-
-export async function validateToken(token: string): Promise<{ user: { login: string; avatar_url: string }; tokenInfo: TokenInfo } | null> {
-  const res = await ghFetch('/user', token);
-  if (!res.ok) return null;
-  const user = await res.json();
-  const tokenType = detectTokenType(token);
-  const scopesHeader = res.headers.get('x-oauth-scopes') || '';
-  const scopes = scopesHeader.split(',').map(s => s.trim()).filter(Boolean);
-  const hasRepoScope = scopes.includes('repo') || scopes.includes('public_repo');
-  return {
-    user,
-    tokenInfo: {
-      type: tokenType,
-      scopes,
-      hasRepoScope: tokenType === 'fine-grained' ? true : hasRepoScope,
-    },
-  };
 }
 
 export async function fetchAllRepos(token: string): Promise<GitHubRepo[]> {

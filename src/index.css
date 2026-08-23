@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background-hsl: 230 25% 4%;
-  --card-background: 230 25% 6%;
-  --accent-purple: 260 85% 65%;
-  --accent-blue: 210 90% 60%;
+  --background-hsl: 220 20% 3%;
+  --card-background: 220 18% 7%;
+  --accent-purple: 160 84% 46%;
+  --accent-blue: 195 90% 56%;
   --accent-red: 0 85% 60%;
   --accent-green: 150 80% 50%;
   --text-primary: 0 0% 98%;
@@ -15,20 +15,22 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--background-hsl));
+  background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px), radial-gradient(circle at 80% 0%, rgba(24, 184, 145, .12), transparent 30rem), radial-gradient(circle at 0% 80%, rgba(28, 116, 176, .1), transparent 28rem);
+  background-size: 48px 48px, 48px 48px, auto, auto;
   color: hsl(var(--text-primary));
 }
 
 @layer components {
   .glass-card {
-    @apply bg-gray-900/60 backdrop-blur-xl border border-white/5 rounded-3xl shadow-2xl transition-all duration-300;
+    @apply bg-gray-900/65 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300;
   }
   
   .premium-gradient-purple {
-    @apply bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600;
+    @apply bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600;
   }
   
   .premium-gradient-red {
