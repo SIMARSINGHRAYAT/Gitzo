@@ -1,5 +1,3 @@
-import { getOrigin, getRedirectUri } from '../config';
-
 export default async function handler(req: any, res: any) {
   const { code, state, error } = req.query;
   const origin = getOrigin(req);
@@ -30,5 +28,18 @@ function parseCookies(value: string): Record<string, string> {
     const [key, ...rest] = part.trim().split('=');
     return [key, decodeURIComponent(rest.join('='))];
   }).filter(([key]) => key));
+}
+
+function getRedirectUri(req: any) {
+  if (process.env.GITHUB_REDIRECT_URI) return process.env.GITHUB_REDIRECT_URI;
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  return `${protocol}://${host}/api/auth/github/callback`;
+}
+
+function getOrigin(req: any) {
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  return `${protocol}://${host}`;
 }
 
