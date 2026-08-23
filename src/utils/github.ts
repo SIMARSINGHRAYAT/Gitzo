@@ -73,13 +73,6 @@ export async function fetchRepoCollaborators(token: string, owner: string, repo:
   return collaborators;
 }
 
-export async function fetchPublicGitHubEmail(token: string, login: string): Promise<string | null> {
-  const res = await ghFetch(`/users/${encodeURIComponent(login)}`, token);
-  if (!res.ok) return null;
-  const data = await res.json() as { email?: string | null };
-  return data.email || null;
-}
-
 export async function testRepoPermission(
   token: string,
   owner: string,

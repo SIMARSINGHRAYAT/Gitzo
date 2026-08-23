@@ -4,7 +4,7 @@ import type {
   CreatedItem, AppMode, MergeMethod,
 } from './types';
 import {
-  fetchAllRepos, fetchRepoCollaborators, fetchPublicGitHubEmail, fetchPrimaryGitHubEmail, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
+  fetchAllRepos, fetchRepoCollaborators, fetchPrimaryGitHubEmail, testRepoPermission, getGitHubOAuthUrl, fetchGitHubUser,
   getDefaultBranchSHA, getDefaultBranchSHAWithRetry,
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
@@ -72,8 +72,6 @@ export default function App() {
   const [permissionError, setPermissionError] = useState('');
   const [collaborators, setCollaborators] = useState<GitHubCollaborator[]>([]);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
-  const [verifiedEmails, setVerifiedEmails] = useState<Record<string, string | null>>({});
-  const [emailChecks, setEmailChecks] = useState<Record<string, boolean>>({});
 
   // Template state
   const [quickdrawBadgeTemplates, setQuickdrawBadgeTemplates] = useState<QuickdrawBadgeTemplate[]>([]);
@@ -144,8 +142,6 @@ export default function App() {
       setPermissionStatus(result.canCreate ? 'ok' : 'fail');
       if (!result.canCreate) setPermissionError(result.error || 'Cannot write to this repo.');
       setCollaborators(await fetchRepoCollaborators(token, repo.owner.login, repo.name));
-      setVerifiedEmails({});
-      setEmailChecks({});
     } catch (err: any) {
       setPermissionStatus('fail'); setError(err.message);
     } finally { setCollaboratorsLoading(false); }
@@ -156,7 +152,7 @@ export default function App() {
   };
 
   const generateYOLOBadge = () => {
-    if (!hasVerifiedEmail(coAuthors[0])) { setError('The reviewer email must match the collaborator public email shown by GitHub.'); return; }
+    if (!isValidEmail(coAuthors[0].email)) { setError('Enter the collaborator email associated with their GitHub account.'); return; }
     setYOLOBadgeTemplates([{
       id: uid(), title: `YOLO Badge Update`, branchName: `yolo-${Date.now()}`,
       filePath: `badges/yolo.md`, fileContent: `# YOLO Badge\nGenerated at ${new Date().toISOString()}`,
@@ -180,25 +176,11 @@ export default function App() {
   const removeCoAuthor = (idx: number) => setCoAuthors(prev => prev.filter((_, i) => i !== idx));
   const updateCoAuthor = (idx: number, field: keyof CoAuthor, value: string) => setCoAuthors(prev => prev.map((ca, i) => i === idx ? { ...ca, [field]: value } : ca));
 
-  const verifyCoAuthorEmail = async (login: string) => {
-    if (!login || verifiedEmails[login] !== undefined) return;
-    setEmailChecks(prev => ({ ...prev, [login]: true }));
-    try {
-      const publicEmail = await fetchPublicGitHubEmail(token, login);
-      setVerifiedEmails(prev => ({ ...prev, [login]: publicEmail }));
-    } finally {
-      setEmailChecks(prev => ({ ...prev, [login]: false }));
-    }
-  };
-
-  const hasVerifiedEmail = (coAuthor: CoAuthor) => {
-    const publicEmail = verifiedEmails[coAuthor.name]?.trim().toLowerCase();
-    return Boolean(coAuthor.name && coAuthor.email.trim() && publicEmail && publicEmail === coAuthor.email.trim().toLowerCase());
-  };
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const generatePairTemplates = () => {
     const valid = coAuthors.filter(ca => ca.name && ca.email);
-    if (valid.length === 0 || valid.some(ca => !hasVerifiedEmail(ca))) { setError('Every collaborator must have a verified public GitHub email before starting.'); return; }
+    if (valid.length === 0 || valid.some(ca => !isValidEmail(ca.email))) { setError('Every collaborator needs a valid email associated with their GitHub account.'); return; }
     setPairTemplates([{
       id: uid(), title: `Pair Session #1`, branchName: `pair-1-${Date.now()}`,
       body: `Co-authored session with ${valid.length} collaborators.`, coAuthors: valid,
@@ -253,9 +235,11 @@ export default function App() {
         await delay(2000);
       }
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'merging', substatus: 'Checking mergeability...', url: pr.html_url, number: pr.number } : ci));
-      await waitForMergeable(token, owner, repo, pr.number, 15, 1000);
+      const mergeState = await waitForMergeable(token, owner, repo, pr.number, 15, 1000);
+      if (!mergeState.mergeable) throw new Error(`PR #${pr.number} cannot be merged: ${mergeState.mergeable_state}.`);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Merging instantly...' } : ci));
-      await mergePullRequest(token, owner, repo, pr.number, 'merge', 3);
+      const mergeResult = await mergePullRequest(token, owner, repo, pr.number, 'merge', 3);
+      if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${pr.number}.`);
       await verifyMergedPullRequest(token, owner, repo, pr.number);
       try { await deleteBranch(token, owner, repo, t.branchName); } catch {}
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'merged', merged: true, substatus: undefined } : ci));
@@ -296,7 +280,7 @@ export default function App() {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merged', merged: true, substatus: undefined, url: result.html_url, number: result.number } : ci));
              try { await delay(500); baseSHA = await getDefaultBranchSHAWithRetry(token, owner, repo, base, baseSHA, 3, 1000); } catch {}
            } else {
-             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'success', url: result.html_url, number: result.number, substatus: undefined } : ci));
+             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'success', url: result.html_url, number: result.number, substatus: 'PR opened - waiting for manual merge' } : ci));
            }
          } catch (e: any) {
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'error', error: e.message } : ci));
@@ -359,12 +343,13 @@ export default function App() {
   };
   const disconnect = () => {
     cancelRef.current = true; pauseRef.current = false; setIsPaused(false);
-    setStep(0); setShowAuth(false); setToken(''); setUser(null); setUserEmail(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setVerifiedEmails({}); setEmailChecks({}); setCreatedItems([]); setError(''); setOauthError('');
+    setStep(0); setShowAuth(false); setToken(''); setUser(null); setUserEmail(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setCreatedItems([]); setError(''); setOauthError('');
   };
 
   const successCount = createdItems.filter(i => i.status === 'success' || i.status === 'merged').length;
   const errorCount = createdItems.filter(i => i.status === 'error').length;
   const progressPct = createdItems.length > 0 ? ((successCount + errorCount) / createdItems.length) * 100 : 0;
+  const completionTitle = errorCount > 0 ? 'ATTENTION NEEDED' : 'ACTIVITY RECORDED';
   const queueCount = appMode === 'quickdraw_badge' ? quickdrawBadgeTemplates.length : appMode === 'yolo_badge' ? yoloBadgeTemplates.length : appMode === 'pull_shark' ? prTemplates.length : pairTemplates.length;
   const filteredRepos = repos.filter(r => r.full_name.toLowerCase().includes(repoSearch.toLowerCase()));
 
@@ -519,18 +504,18 @@ export default function App() {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Reviewer Username</label>
-                                  <select value={coAuthors[0].name} onChange={e => { updateCoAuthor(0, 'name', e.target.value); verifyCoAuthorEmail(e.target.value); }} disabled={collaboratorsLoading || collaborators.length === 0} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
+                                  <select value={coAuthors[0].name} onChange={e => updateCoAuthor(0, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
                                     <option value="">{collaboratorsLoading ? 'Loading collaborators...' : collaborators.length ? 'Select collaborator' : 'No collaborators found'}</option>
                                     {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
                                   </select>
                                </div>
                                <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Git Email</label>
-                                  <input value={coAuthors[0].email} onChange={e => updateCoAuthor(0, 'email', e.target.value)} onBlur={() => verifyCoAuthorEmail(coAuthors[0].name)} placeholder="public-email@example.com" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <input value={coAuthors[0].email} onChange={e => updateCoAuthor(0, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
                                </div>
                             </div>
-                            <p className="text-[10px] text-gray-600">GitHub only exposes public collaborator emails. The email must match exactly.</p>
-                            <button onClick={generateYOLOBadge} disabled={!hasVerifiedEmail(coAuthors[0]) || Boolean(emailChecks[coAuthors[0].name])} className="w-full py-5 rounded-2xl bg-gradient-to-r from-red-600 to-orange-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed">{emailChecks[coAuthors[0].name] ? 'VERIFYING EMAIL...' : 'BUILD YOLO FLOW'}</button>
+                            <p className="text-[10px] text-gray-600">Use the collaborator’s verified GitHub email, including their GitHub noreply address if applicable.</p>
+                            <button onClick={generateYOLOBadge} disabled={!coAuthors[0].name || !isValidEmail(coAuthors[0].email)} className="w-full py-5 rounded-2xl bg-gradient-to-r from-red-600 to-orange-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl disabled:opacity-30 disabled:cursor-not-allowed">BUILD YOLO FLOW</button>
                          </div>
                        )}
                        {appMode === 'pull_shark' && (
@@ -545,16 +530,16 @@ export default function App() {
                             <div className="p-6 glass-card !bg-amber-500/5 border-amber-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Credit collaborators with co-authored commits and merged pull requests for Pair Extraordinaire.</div>
                             {coAuthors.map((ca, i) => (
                                <div key={i} className="flex gap-2">
-                                  <select value={ca.name} onChange={e => { updateCoAuthor(i, 'name', e.target.value); verifyCoAuthorEmail(e.target.value); }} disabled={collaboratorsLoading || collaborators.length === 0} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
+                                  <select value={ca.name} onChange={e => updateCoAuthor(i, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
                                     <option value="">{collaboratorsLoading ? 'Loading...' : collaborators.length ? 'Select collaborator' : 'No collaborators'}</option>
                                     {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
                                   </select>
-                                  <input value={ca.email} onChange={e => updateCoAuthor(i, 'email', e.target.value)} onBlur={() => verifyCoAuthorEmail(ca.name)} placeholder="public-email@example.com" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <input value={ca.email} onChange={e => updateCoAuthor(i, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
                                   <button onClick={() => removeCoAuthor(i)} className="px-3 text-red-500"><X className="w-4 h-4" /></button>
                                </div>
                             ))}
                             <button onClick={addCoAuthor} className="w-full py-2 text-[10px] font-black uppercase text-gray-600">+ Add Member</button>
-                            <button onClick={generatePairTemplates} disabled={coAuthors.length === 0 || coAuthors.some(ca => !hasVerifiedEmail(ca)) || Object.values(emailChecks).some(Boolean)} className="w-full py-5 rounded-2xl premium-gradient-purple text-white font-black text-xs uppercase tracking-[0.2em] disabled:opacity-30 disabled:cursor-not-allowed">START SESSION</button>
+                            <button onClick={generatePairTemplates} disabled={coAuthors.length === 0 || coAuthors.some(ca => !ca.name || !isValidEmail(ca.email))} className="w-full py-5 rounded-2xl premium-gradient-purple text-white font-black text-xs uppercase tracking-[0.2em] disabled:opacity-30 disabled:cursor-not-allowed">START SESSION</button>
                          </div>
                        )}
                     </div>
@@ -575,8 +560,8 @@ export default function App() {
                    <div className="flex items-center gap-6">
                       <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10">{step === 4 ? <CheckCircle2 className="w-8 h-8 text-green-500" /> : <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />}</div>
                       <div>
-                        <h2 className="text-3xl font-black text-white tracking-tighter">{step === 4 ? 'COMPLETE' : 'EXECUTING'}</h2>
-                        <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-1">Workflow node performance</p>
+                        <h2 className="text-3xl font-black text-white tracking-tighter">{step === 4 ? completionTitle : 'EXECUTING'}</h2>
+                        <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-1">{step === 4 ? `${successCount} recorded, ${errorCount} failed` : 'Workflow node performance'}</p>
                       </div>
                    </div>
                    {step === 3 && (
@@ -595,7 +580,8 @@ export default function App() {
                            <span className="text-xs font-bold text-gray-300">{item.title}</span>
                         </div>
                         <div className="flex items-center gap-4">
-                           <span className={cn("text-[9px] font-black uppercase tracking-widest", item.status === 'merged' ? 'text-green-500' : 'text-gray-600')}>{item.substatus || item.status}</span>
+                           <span className={cn("text-[9px] font-black uppercase tracking-widest", item.status === 'merged' ? 'text-green-500' : item.status === 'error' ? 'text-red-400' : 'text-gray-600')}>{item.substatus || item.status}</span>
+                           {item.error && <span className="max-w-xs text-right text-[10px] text-red-300/80">{item.error}</span>}
                            {item.url && <a href={item.url} target="_blank" className="p-2 rounded-lg bg-white/5 hover:text-white transition-all"><ChevronRight className="w-4 h-4 text-gray-700 hover:text-white" /></a>}
                         </div>
                      </div>
