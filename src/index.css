@@ -112,7 +112,6 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  perspective: 900px;
 }
 
 .floating-github {

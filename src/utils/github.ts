@@ -541,7 +541,7 @@ export async function waitForMergeable(
     }
     return { mergeable: false, mergeable_state: data.mergeable_state || 'unknown' };
   }
-  return { mergeable: false, mergeable_state: 'polling_timeout' };
+  return { mergeable: false, mergeable_state: 'GitHub is still calculating mergeability after 45 seconds' };
 }
 
 /**

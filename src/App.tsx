@@ -30,21 +30,13 @@ const MAX_ITEMS = 300;
 const MAX_RATE_LIMIT_RETRIES = 3;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const FLOATING_GITHUB_LOGOS = [
-  { top: '4%', left: '4%', size: 'clamp(28px, 5vw, 72px)', delay: '-1s' },
-  { top: '12%', left: '18%', size: 'clamp(38px, 6vw, 90px)', delay: '-4s' },
-  { top: '8%', left: '42%', size: 'clamp(24px, 4vw, 58px)', delay: '-7s' },
-  { top: '18%', left: '68%', size: 'clamp(44px, 7vw, 100px)', delay: '-2s' },
-  { top: '7%', left: '92%', size: 'clamp(28px, 5vw, 70px)', delay: '-5s' },
-  { top: '34%', left: '7%', size: 'clamp(36px, 5vw, 76px)', delay: '-6s' },
-  { top: '42%', left: '28%', size: 'clamp(22px, 4vw, 54px)', delay: '-3s' },
-  { top: '31%', left: '54%', size: 'clamp(32px, 5vw, 74px)', delay: '-8s' },
-  { top: '44%', left: '84%', size: 'clamp(24px, 4vw, 62px)', delay: '-1s' },
-  { top: '61%', left: '3%', size: 'clamp(40px, 6vw, 88px)', delay: '-5s' },
-  { top: '70%', left: '23%', size: 'clamp(26px, 4vw, 60px)', delay: '-2s' },
-  { top: '65%', left: '48%', size: 'clamp(38px, 6vw, 82px)', delay: '-7s' },
-  { top: '74%', left: '72%', size: 'clamp(24px, 4vw, 56px)', delay: '-4s' },
-  { top: '88%', left: '91%', size: 'clamp(42px, 6vw, 90px)', delay: '-6s' },
-  { top: '90%', left: '36%', size: 'clamp(28px, 5vw, 68px)', delay: '-3s' },
+  { left: '4%', size: 'clamp(28px, 5vw, 72px)', delay: '-1s', duration: '8s' },
+  { left: '18%', size: 'clamp(38px, 6vw, 90px)', delay: '-4s', duration: '11s' },
+  { left: '32%', size: 'clamp(24px, 4vw, 58px)', delay: '-7s', duration: '9s' },
+  { left: '48%', size: 'clamp(44px, 7vw, 100px)', delay: '-2s', duration: '13s' },
+  { left: '64%', size: 'clamp(28px, 5vw, 70px)', delay: '-5s', duration: '10s' },
+  { left: '80%', size: 'clamp(36px, 5vw, 76px)', delay: '-6s', duration: '12s' },
+  { left: '93%', size: 'clamp(22px, 4vw, 54px)', delay: '-3s', duration: '9s' },
 ];
 
 // ─── Utility ─────────────────────────────────────────────────────────
@@ -256,7 +248,7 @@ export default function App() {
         await delay(2000);
       }
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'merging', substatus: 'Checking mergeability...', url: pr.html_url, number: pr.number } : ci));
-      const mergeState = await waitForMergeable(token, owner, repo, pr.number, 15, 1000);
+      const mergeState = await waitForMergeable(token, owner, repo, pr.number, 45, 1000);
       if (!mergeState.mergeable) throw new Error(`PR #${pr.number} cannot be merged: ${mergeState.mergeable_state}.`);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Merging instantly...' } : ci));
       const mergeResult = await mergePullRequest(token, owner, repo, pr.number, 'merge', 3);
@@ -292,7 +284,7 @@ export default function App() {
            const result = await createPullRequest(token, owner, repo, pr.title, pr.body, pr.branchName, base);
            if (autoMerge) {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
-             const mergeState = await waitForMergeable(token, owner, repo, result.number, 15, 1000);
+             const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
              if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
              const mergeResult = await mergePullRequest(token, owner, repo, result.number, mergeMethod, 3);
              if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
@@ -333,7 +325,7 @@ export default function App() {
            await createMultiFileCommitWithCoAuthors(token, owner, repo, pt.branchName, pt.files, pt.title, pt.coAuthors, commitAuthor);
            const result = await createPullRequest(token, owner, repo, pt.title, pt.body, pt.branchName, base);
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
-           const mergeState = await waitForMergeable(token, owner, repo, result.number, 15, 1000);
+           const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
            if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
            const mergeResult = await mergePullRequest(token, owner, repo, result.number, 'merge', 3);
            if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
@@ -388,7 +380,7 @@ export default function App() {
     <div className="min-h-screen bg-black text-gray-100 selection:bg-purple-500/30 font-sans app-shell">
       <div className="floating-githubs" aria-hidden="true">
         {FLOATING_GITHUB_LOGOS.map((logo, index) => (
-          <Github key={index} className="floating-github" style={{ top: logo.top, left: logo.left, width: logo.size, height: logo.size, animationDelay: logo.delay }} />
+          <Github key={index} className="floating-github" style={{ left: logo.left, width: logo.size, height: logo.size, animationDelay: logo.delay, animationDuration: logo.duration }} />
         ))}
       </div>
       <main className={cn('max-w-6xl mx-auto px-4 sm:px-6 relative z-10', step === 0 ? 'min-h-screen flex items-center justify-center py-12 sm:py-16' : 'py-8 sm:py-12')}>
