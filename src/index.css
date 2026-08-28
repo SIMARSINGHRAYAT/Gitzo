@@ -116,6 +116,7 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 
 .floating-github {
   position: absolute;
+  top: 0;
   color: #35ff9a;
   opacity: .12;
   filter: drop-shadow(0 0 12px rgba(53, 255, 154, .65));

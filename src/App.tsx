@@ -249,7 +249,7 @@ export default function App() {
       }
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, status: 'merging', substatus: 'Checking mergeability...', url: pr.html_url, number: pr.number } : ci));
       const mergeState = await waitForMergeable(token, owner, repo, pr.number, 45, 1000);
-      if (!mergeState.mergeable) throw new Error(`PR #${pr.number} cannot be merged: ${mergeState.mergeable_state}.`);
+      if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) throw new Error(`PR #${pr.number} cannot be merged: ${mergeState.mergeable_state}.`);
       setCreatedItems(prev => prev.map(ci => ci.id === t.id ? { ...ci, substatus: 'Merging instantly...' } : ci));
       const mergeResult = await mergePullRequest(token, owner, repo, pr.number, 'merge', 3);
       if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${pr.number}.`);
@@ -285,7 +285,7 @@ export default function App() {
            if (autoMerge) {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
              const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
-             if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
+             if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
              const mergeResult = await mergePullRequest(token, owner, repo, result.number, mergeMethod, 3);
              if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
              await verifyMergedPullRequest(token, owner, repo, result.number);
@@ -326,7 +326,7 @@ export default function App() {
            const result = await createPullRequest(token, owner, repo, pt.title, pt.body, pt.branchName, base);
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
            const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
-           if (!mergeState.mergeable) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
+           if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
            const mergeResult = await mergePullRequest(token, owner, repo, result.number, 'merge', 3);
            if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
            await verifyMergedPullRequest(token, owner, repo, result.number);

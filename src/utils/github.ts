@@ -553,7 +553,7 @@ export async function mergePullRequest(
   repo: string,
   pullNumber: number,
   mergeMethod: MergeMethod = 'merge',
-  maxRetries = 3
+  maxRetries = 10
 ): Promise<{ merged: boolean; sha?: string; message?: string }> {
   let lastError: Error | null = null;
 
@@ -573,7 +573,7 @@ export async function mergePullRequest(
       const err = await res.json().catch(() => ({ message: res.statusText }));
 
       if (res.status === 405) {
-        if (attempt < maxRetries - 1) { await sleep(2000); continue; }
+        if (attempt < maxRetries - 1) { await sleep(3000); continue; }
         throw new Error(`Cannot merge PR #${pullNumber}: ${err.message || 'Method not allowed. Check branch protection rules.'}`);
       }
       if (res.status === 409) {
