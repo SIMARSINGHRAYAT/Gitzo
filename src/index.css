@@ -16,6 +16,7 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
   font-family: 'VT323', monospace;
   font-size: 20px;
   -webkit-font-smoothing: antialiased;
@@ -77,6 +78,77 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 .rounded-2xl, .rounded-3xl, .rounded-xl, .rounded-lg { border-radius: 0 !important; }
 
 .staggered-list > * { animation: slideUp .35s steps(4, end) forwards; }
+
+.app-shell, .app-shell * {
+  font-family: 'VT323', monospace;
+  letter-spacing: 0;
+}
+
+.app-shell h1, .app-shell h2, .app-shell h3,
+.app-shell button, .app-shell label, .app-shell select, .app-shell input {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.welcome-title {
+  font-size: clamp(1.55rem, 7.2vw, 5.5rem);
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.floating-githubs {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 900px;
+}
+
+.floating-github {
+  position: absolute;
+  color: #35ff9a;
+  opacity: .13;
+  filter: drop-shadow(0 0 12px rgba(53, 255, 154, .65));
+  transform: rotateX(52deg) rotateY(-24deg) rotateZ(-12deg);
+  animation: float-github 8s ease-in-out infinite;
+}
+
+@keyframes float-github {
+  0%, 100% { transform: translate3d(0, 0, 0) rotateX(52deg) rotateY(-24deg) rotateZ(-12deg); }
+  50% { transform: translate3d(12px, -20px, 30px) rotateX(62deg) rotateY(18deg) rotateZ(8deg); }
+}
+
+.repo-menu {
+  min-height: 300px;
+  max-height: min(70vh, 680px);
+}
+
+.repo-list {
+  min-height: 220px;
+  max-height: min(62vh, 560px);
+}
+
+.repo-list > div {
+  min-height: 56px;
+}
+
+.badge-reference {
+  width: min(100%, 230px);
+  height: 74px;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: auto;
+  opacity: .72;
+  border: 2px solid rgba(18, 214, 160, .4);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, .45);
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .welcome-title { font-size: clamp(1.35rem, 8.4vw, 2.4rem); }
+  .repo-menu { left: -1rem; right: -1rem; }
+  .repo-list { max-height: 58vh; }
+  .floating-github { opacity: .08; }
+}
 
 @layer components {
   .glass-card {

@@ -12,6 +12,10 @@ import {
   createIssue, closeIssue, requestPRReview
 } from './utils/github';
 import { cn } from './utils/cn';
+import quickdrawBadge from '../logo/starstruck-default--light-a594e2a027e0.png';
+import yoloBadge from '../logo/yolo-default-be0bbff04951.png';
+import pullSharkBadge from '../logo/pull-shark-default-498c279a747d.png';
+import pairExtraordinaireBadge from '../logo/pair-extraordinaire-default-579438a20e01.png';
 import {
   Github, Key, ChevronDown, Play,
   CheckCircle2, XCircle, Loader2, AlertTriangle, Lock, Globe,
@@ -25,6 +29,14 @@ import {
 const MAX_ITEMS = 300;
 const MAX_RATE_LIMIT_RETRIES = 3;
 const MAX_CONSECUTIVE_ERRORS = 5;
+const FLOATING_GITHUB_LOGOS = [
+  { top: '8%', left: '6%', size: 'clamp(48px, 8vw, 110px)', delay: '0s' },
+  { top: '20%', left: '87%', size: 'clamp(32px, 5vw, 76px)', delay: '-2s' },
+  { top: '54%', left: '3%', size: 'clamp(36px, 6vw, 84px)', delay: '-4s' },
+  { top: '68%', left: '92%', size: 'clamp(48px, 7vw, 100px)', delay: '-1s' },
+  { top: '86%', left: '14%', size: 'clamp(28px, 4vw, 60px)', delay: '-3s' },
+  { top: '78%', left: '78%', size: 'clamp(30px, 5vw, 72px)', delay: '-5s' },
+];
 
 // ─── Utility ─────────────────────────────────────────────────────────
 let idCounter = 0;
@@ -352,14 +364,25 @@ export default function App() {
   const completionTitle = errorCount > 0 ? 'ATTENTION NEEDED' : 'ACTIVITY RECORDED';
   const queueCount = appMode === 'quickdraw_badge' ? quickdrawBadgeTemplates.length : appMode === 'yolo_badge' ? yoloBadgeTemplates.length : appMode === 'pull_shark' ? prTemplates.length : pairTemplates.length;
   const filteredRepos = repos.filter(r => r.full_name.toLowerCase().includes(repoSearch.toLowerCase()));
+  const badgeAssets = {
+    quickdraw_badge: quickdrawBadge,
+    yolo_badge: yoloBadge,
+    pull_shark: pullSharkBadge,
+    pair_extraordinaire: pairExtraordinaireBadge,
+  } as const;
 
   const togglePause = () => { pauseRef.current = !pauseRef.current; setIsPaused(!isPaused); };
   const cancelCreation = () => { cancelRef.current = true; pauseRef.current = false; setIsPaused(false); };
 
   // ── RENDER ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-black text-gray-100 selection:bg-purple-500/30 font-sans">
-      <main className={cn('max-w-6xl mx-auto px-6', step === 0 ? 'min-h-screen flex items-center justify-center py-16' : 'py-12')}>
+    <div className="min-h-screen bg-black text-gray-100 selection:bg-purple-500/30 font-sans app-shell">
+      <div className="floating-githubs" aria-hidden="true">
+        {FLOATING_GITHUB_LOGOS.map((logo, index) => (
+          <Github key={index} className="floating-github" style={{ top: logo.top, left: logo.left, width: logo.size, height: logo.size, animationDelay: logo.delay }} />
+        ))}
+      </div>
+      <main className={cn('max-w-6xl mx-auto px-4 sm:px-6 relative z-10', step === 0 ? 'min-h-screen flex items-center justify-center py-12 sm:py-16' : 'py-8 sm:py-12')}>
 
         {(error || oauthError) && (
           <div className="mb-10 glass-card !bg-red-500/5 border-red-500/20 p-5 flex items-start gap-4 animate-in slide-in-from-top-4 duration-500">
@@ -371,9 +394,9 @@ export default function App() {
 
         {/* STEP 0 */}
         {step === 0 && !showAuth && (
-          <div className="max-w-3xl mx-auto text-center">
+          <div className="max-w-3xl mx-auto text-center min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
-            <h2 className="text-5xl sm:text-8xl font-black leading-tight tracking-tight text-white">GitHubBadges<span className="text-green-400">.com</span></h2>
+            <h2 className="welcome-title font-black leading-tight text-white">GitHubBadges<span className="text-green-400">.com</span></h2>
             <p className="text-xl sm:text-2xl italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
             <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
           </div>
@@ -404,7 +427,7 @@ export default function App() {
             <div className="flex justify-end mb-5">
               <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
             </div>
-            <div className="glass-card p-10 lg:p-14 relative overflow-hidden">
+            <div className="glass-card p-6 sm:p-10 lg:p-14 relative overflow-visible">
               <div className="flex items-center gap-6 mb-12">
                 <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10"><Globe className="w-7 h-7 text-blue-400" /></div>
                 <div>
@@ -414,15 +437,15 @@ export default function App() {
               </div>
               <div className="relative mb-10" ref={dropdownRef}>
                 <div onClick={() => setRepoDropdownOpen(!repoDropdownOpen)} className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-5 text-sm cursor-pointer flex items-center justify-between hover:border-white/20 transition-all font-bold">
-                  <span className={selectedRepo ? 'text-white' : 'text-gray-600'}>{selectedRepo ? selectedRepo.full_name : 'Browse available repositories...'}</span>
+                  <span className={cn('min-w-0 break-all', selectedRepo ? 'text-white' : 'text-gray-600')}>{selectedRepo ? selectedRepo.full_name : 'Browse available repositories...'}</span>
                   <ChevronDown className={cn('w-5 h-5 transition-transform', repoDropdownOpen && 'rotate-180')} />
                 </div>
                 {repoDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-4 glass-card !bg-gray-950/95 border-white/10 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="repo-menu absolute top-full left-0 right-0 mt-3 glass-card !bg-gray-950/98 border-white/10 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
                     <div className="p-4 border-b border-white/5 bg-white/5">
                        <input type="text" autoFocus value={repoSearch} onChange={e => setRepoSearch(e.target.value)} placeholder="Filter results..." className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none placeholder:text-gray-700" />
                     </div>
-                    <div className="max-h-72 overflow-y-auto overscroll-contain">
+                    <div className="repo-list max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain">
                       {filteredRepos.length === 0 && <div className="px-6 py-8 text-center text-xs font-bold text-gray-600">No repositories found</div>}
                       {filteredRepos.map(r => (
                         <div key={r.id} onClick={() => handleSelectRepo(r)} className="px-6 py-4 hover:bg-white/5 cursor-pointer flex items-center justify-between border-b border-white/5 last:border-0">
@@ -487,6 +510,7 @@ export default function App() {
                     {appMode === 'yolo_badge' && <Rocket className="w-20 h-20 text-red-500 mb-8" />}
                     {appMode === 'pull_shark' && <GitPullRequest className="w-20 h-20 text-green-500 mb-8" />}
                     {appMode === 'pair_extraordinaire' && <Award className="w-20 h-20 text-amber-500 mb-8" />}
+                    <img src={badgeAssets[appMode]} alt="Local badge reference" className="badge-reference" />
                     <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">{appMode.replace('_', ' ')}</h3>
                     <p className="text-sm text-gray-600 font-medium leading-relaxed">Node based orchestration for {appMode.replace('_', ' ')} achievement triggers.</p>
                  </div>
