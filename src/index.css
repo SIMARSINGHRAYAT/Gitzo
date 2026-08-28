@@ -49,7 +49,7 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 
 /* Convert the existing panels into crisp, game-like HUD windows. */
 .glass-card {
-  @apply bg-gray-900/90 border-2 border-cyan-400/30 shadow-none transition-none;
+  @apply bg-black/70 border-2 border-cyan-400/30 shadow-none transition-none;
   border-radius: 0 !important;
   box-shadow: 6px 6px 0 rgba(0, 0, 0, .48), inset 0 0 0 2px rgba(255,255,255,.025);
 }
@@ -90,9 +90,21 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 }
 
 .welcome-title {
-  font-size: clamp(1.55rem, 7.2vw, 5.5rem);
-  overflow-wrap: anywhere;
+  font-size: clamp(1rem, 5.8vw, 4.5rem);
+  white-space: nowrap;
+  letter-spacing: -0.02em;
   max-width: 100%;
+}
+
+.welcome-eyebrow {
+  font-family: 'VT323', monospace !important;
+  font-size: clamp(1.2rem, 2.8vw, 2rem);
+  line-height: 1.25;
+}
+
+.welcome-quote {
+  font-family: 'VT323', monospace !important;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
 }
 
 .floating-githubs {
@@ -106,15 +118,16 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 .floating-github {
   position: absolute;
   color: #35ff9a;
-  opacity: .13;
+  opacity: .12;
   filter: drop-shadow(0 0 12px rgba(53, 255, 154, .65));
-  transform: rotateX(52deg) rotateY(-24deg) rotateZ(-12deg);
-  animation: float-github 8s ease-in-out infinite;
+  animation: drop-github 7s linear infinite;
 }
 
-@keyframes float-github {
-  0%, 100% { transform: translate3d(0, 0, 0) rotateX(52deg) rotateY(-24deg) rotateZ(-12deg); }
-  50% { transform: translate3d(12px, -20px, 30px) rotateX(62deg) rotateY(18deg) rotateZ(8deg); }
+@keyframes drop-github {
+  0% { transform: translateY(-18vh); opacity: 0; }
+  12% { opacity: .12; }
+  88% { opacity: .12; }
+  100% { transform: translateY(118vh); opacity: 0; }
 }
 
 .repo-menu {
@@ -132,19 +145,20 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
 }
 
 .badge-reference {
-  width: min(100%, 230px);
-  height: 74px;
-  object-fit: cover;
+  width: min(100%, 280px);
+  height: 150px;
+  object-fit: contain;
   object-position: center;
-  image-rendering: auto;
-  opacity: .72;
+  image-rendering: pixelated;
+  opacity: .92;
+  background: rgba(0, 0, 0, .42);
   border: 2px solid rgba(18, 214, 160, .4);
   box-shadow: 4px 4px 0 rgba(0, 0, 0, .45);
   margin-bottom: 1.5rem;
 }
 
 @media (max-width: 640px) {
-  .welcome-title { font-size: clamp(1.35rem, 8.4vw, 2.4rem); }
+  .welcome-title { font-size: clamp(.72rem, 5.8vw, 1.8rem); }
   .repo-menu { left: -1rem; right: -1rem; }
   .repo-list { max-height: 58vh; }
   .floating-github { opacity: .08; }

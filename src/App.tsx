@@ -30,12 +30,21 @@ const MAX_ITEMS = 300;
 const MAX_RATE_LIMIT_RETRIES = 3;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const FLOATING_GITHUB_LOGOS = [
-  { top: '8%', left: '6%', size: 'clamp(48px, 8vw, 110px)', delay: '0s' },
-  { top: '20%', left: '87%', size: 'clamp(32px, 5vw, 76px)', delay: '-2s' },
-  { top: '54%', left: '3%', size: 'clamp(36px, 6vw, 84px)', delay: '-4s' },
-  { top: '68%', left: '92%', size: 'clamp(48px, 7vw, 100px)', delay: '-1s' },
-  { top: '86%', left: '14%', size: 'clamp(28px, 4vw, 60px)', delay: '-3s' },
-  { top: '78%', left: '78%', size: 'clamp(30px, 5vw, 72px)', delay: '-5s' },
+  { top: '4%', left: '4%', size: 'clamp(28px, 5vw, 72px)', delay: '-1s' },
+  { top: '12%', left: '18%', size: 'clamp(38px, 6vw, 90px)', delay: '-4s' },
+  { top: '8%', left: '42%', size: 'clamp(24px, 4vw, 58px)', delay: '-7s' },
+  { top: '18%', left: '68%', size: 'clamp(44px, 7vw, 100px)', delay: '-2s' },
+  { top: '7%', left: '92%', size: 'clamp(28px, 5vw, 70px)', delay: '-5s' },
+  { top: '34%', left: '7%', size: 'clamp(36px, 5vw, 76px)', delay: '-6s' },
+  { top: '42%', left: '28%', size: 'clamp(22px, 4vw, 54px)', delay: '-3s' },
+  { top: '31%', left: '54%', size: 'clamp(32px, 5vw, 74px)', delay: '-8s' },
+  { top: '44%', left: '84%', size: 'clamp(24px, 4vw, 62px)', delay: '-1s' },
+  { top: '61%', left: '3%', size: 'clamp(40px, 6vw, 88px)', delay: '-5s' },
+  { top: '70%', left: '23%', size: 'clamp(26px, 4vw, 60px)', delay: '-2s' },
+  { top: '65%', left: '48%', size: 'clamp(38px, 6vw, 82px)', delay: '-7s' },
+  { top: '74%', left: '72%', size: 'clamp(24px, 4vw, 56px)', delay: '-4s' },
+  { top: '88%', left: '91%', size: 'clamp(42px, 6vw, 90px)', delay: '-6s' },
+  { top: '90%', left: '36%', size: 'clamp(28px, 5vw, 68px)', delay: '-3s' },
 ];
 
 // ─── Utility ─────────────────────────────────────────────────────────
@@ -395,9 +404,9 @@ export default function App() {
         {/* STEP 0 */}
         {step === 0 && !showAuth && (
           <div className="max-w-3xl mx-auto text-center min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
+            <p className="welcome-eyebrow font-black uppercase text-green-400 mb-6">A better way to build your GitHub story</p>
             <h2 className="welcome-title font-black leading-tight text-white">GitHubBadges<span className="text-green-400">.com</span></h2>
-            <p className="text-xl sm:text-2xl italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
+            <p className="welcome-quote italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
             <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
           </div>
         )}
@@ -506,11 +515,7 @@ export default function App() {
 
               <div className="grid lg:grid-cols-2 gap-10">
                  <div className="glass-card p-10 flex flex-col items-center justify-center text-center opacity-60 hover:opacity-100 transition-opacity">
-                    {appMode === 'quickdraw_badge' && <Sparkles className="w-20 h-20 text-purple-500 mb-8" />}
-                    {appMode === 'yolo_badge' && <Rocket className="w-20 h-20 text-red-500 mb-8" />}
-                    {appMode === 'pull_shark' && <GitPullRequest className="w-20 h-20 text-green-500 mb-8" />}
-                    {appMode === 'pair_extraordinaire' && <Award className="w-20 h-20 text-amber-500 mb-8" />}
-                    <img src={badgeAssets[appMode]} alt="Local badge reference" className="badge-reference" />
+                    <img src={badgeAssets[appMode]} alt={`${appMode.replace('_', ' ')} badge`} className="badge-reference" />
                     <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">{appMode.replace('_', ' ')}</h3>
                     <p className="text-sm text-gray-600 font-medium leading-relaxed">Node based orchestration for {appMode.replace('_', ' ')} achievement triggers.</p>
                  </div>
@@ -525,7 +530,7 @@ export default function App() {
                        )}
                        {appMode === 'yolo_badge' && (
                          <div className="space-y-6 w-full">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
                               <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Reviewer Username</label>
                                   <select value={coAuthors[0].name} onChange={e => updateCoAuthor(0, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
@@ -535,7 +540,7 @@ export default function App() {
                                </div>
                                <div className="space-y-2">
                                   <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Git Email</label>
-                                  <input value={coAuthors[0].email} onChange={e => updateCoAuthor(0, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <input value={coAuthors[0].email} onChange={e => updateCoAuthor(0, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="w-full min-w-0 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
                                </div>
                             </div>
                             <p className="text-[10px] text-gray-600">Use the collaborator’s verified GitHub email, including their GitHub noreply address if applicable.</p>
@@ -553,12 +558,12 @@ export default function App() {
                          <div className="space-y-6 w-full">
                             <div className="p-6 glass-card !bg-amber-500/5 border-amber-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Credit collaborators with co-authored commits and merged pull requests for Pair Extraordinaire.</div>
                             {coAuthors.map((ca, i) => (
-                               <div key={i} className="flex gap-2">
+                               <div key={i} className="flex flex-col sm:flex-row gap-2 min-w-0">
                                   <select value={ca.name} onChange={e => updateCoAuthor(i, 'name', e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
                                     <option value="">{collaboratorsLoading ? 'Loading...' : collaborators.length ? 'Select collaborator' : 'No collaborators'}</option>
                                     {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
                                   </select>
-                                  <input value={ca.email} onChange={e => updateCoAuthor(i, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
+                                  <input value={ca.email} onChange={e => updateCoAuthor(i, 'email', e.target.value)} placeholder="github-associated-email@example.com" className="flex-1 min-w-0 w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white" />
                                   <button onClick={() => removeCoAuthor(i)} className="px-3 text-red-500"><X className="w-4 h-4" /></button>
                                </div>
                             ))}
