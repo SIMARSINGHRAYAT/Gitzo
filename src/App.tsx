@@ -373,7 +373,7 @@ export default function App() {
         {step === 0 && !showAuth && (
           <div className="max-w-3xl mx-auto text-center">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-green-400 mb-6">A better way to build your GitHub story</p>
-            <h2 className="text-5xl sm:text-8xl font-black leading-tight tracking-tight bg-gradient-to-r from-white via-slate-300 to-slate-500 bg-clip-text text-transparent">GitHubUpgrade<span className="text-green-400">.com</span></h2>
+            <h2 className="text-5xl sm:text-8xl font-black leading-tight tracking-tight text-white">GitHubBadges<span className="text-green-400">.com</span></h2>
             <p className="text-xl sm:text-2xl italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
             <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
           </div>
@@ -388,7 +388,7 @@ export default function App() {
                  <h3 className="text-xl font-black text-white tracking-widest uppercase">Welcome aboard</h3>
               </div>
               <div className="space-y-6">
-                <p className="text-sm text-gray-500 leading-relaxed">Sign in securely with GitHub OAuth. GitHubUpgrade never asks you to paste or manage a personal access token.</p>
+                <p className="text-sm text-gray-500 leading-relaxed">Sign in securely with GitHub OAuth. GitHubBadges never asks you to paste or manage a personal access token.</p>
                 <button onClick={handleConnect} disabled={loading} className="w-full py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/10 hover:bg-green-400 disabled:opacity-50">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Github className="w-5 h-5" />} {loading ? 'CONNECTING...' : 'SIGN IN VIA GITHUB'} <ExternalLink className="w-4 h-4" />
                 </button>
@@ -595,7 +595,7 @@ export default function App() {
 
       {(step !== 0 || showAuth) && (
         <footer className="py-20 text-center opacity-30">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubUpgrade.com</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubBadges.com</p>
         </footer>
       )}
     </div>

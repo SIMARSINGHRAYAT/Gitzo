@@ -1,27 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background-hsl: 0 0% 0%;
-  --card-background: 0 0% 5%;
-  --accent-purple: 160 84% 46%;
-  --accent-blue: 195 90% 56%;
-  --accent-red: 0 85% 60%;
-  --accent-green: 150 80% 50%;
-  --text-primary: 0 0% 98%;
-  --text-secondary: 230 15% 70%;
-  --glass-border: 230 20% 20% / 0.4;
-  --glass-bg: 230 25% 10% / 0.6;
+  --background-hsl: 220 32% 8%;
+  --card-background: 220 28% 12%;
+  --accent-purple: 154 100% 50%;
+  --accent-blue: 187 100% 56%;
+  --accent-red: 4 100% 64%;
+  --accent-green: 72 100% 58%;
+  --text-primary: 56 100% 93%;
+  --text-secondary: 185 20% 70%;
+  --glass-border: 187 100% 56% / 0.35;
+  --glass-bg: 220 28% 12% / 0.92;
 }
 
 body {
   margin: 0;
-  font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+  font-family: 'VT323', monospace;
+  font-size: 20px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: hsl(var(--background-hsl));
-  background-image: radial-gradient(circle at 50% 0%, rgba(24, 184, 145, .1), transparent 32rem), radial-gradient(circle at 0% 100%, rgba(255,255,255,.04), transparent 24rem);
+  background-image: linear-gradient(rgba(24, 240, 196, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(24, 240, 196, .045) 1px, transparent 1px), linear-gradient(180deg, rgba(0, 0, 0, .1), rgba(0, 0, 0, .45));
+  background-size: 24px 24px, 24px 24px, 100% 100%;
   color: hsl(var(--text-primary));
 }
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.018) 3px 4px);
+}
+
+h1, h2, h3, button, label, select, input {
+  font-family: 'Press Start 2P', monospace;
+}
+
+h2 { text-shadow: 4px 4px 0 #102e3a; }
+
+button, a, [role='button'] { image-rendering: pixelated; }
+button { border-radius: 0 !important; }
+input, select { border-radius: 0 !important; outline-color: #9dff38; }
+input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
+
+/* Convert the existing panels into crisp, game-like HUD windows. */
+.glass-card {
+  @apply bg-gray-900/90 border-2 border-cyan-400/30 shadow-none transition-none;
+  border-radius: 0 !important;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, .48), inset 0 0 0 2px rgba(255,255,255,.025);
+}
+
+.glass-card::before {
+  content: '';
+  display: block;
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(157, 255, 56, .08);
+  pointer-events: none;
+}
+
+.premium-gradient-purple, .premium-gradient-green, .premium-gradient-red {
+  background-image: linear-gradient(90deg, #12d6a0, #9dff38) !important;
+  color: #071014 !important;
+  border: 2px solid #d9ff9e !important;
+  box-shadow: 4px 4px 0 #061115 !important;
+}
+
+.premium-gradient-red { background-image: linear-gradient(90deg, #ff6b4a, #ffb02e) !important; }
+.premium-gradient-green { background-image: linear-gradient(90deg, #9dff38, #12d6a0) !important; }
+.btn-hover-effect:hover, button:hover { transform: translate(-2px, -2px); filter: brightness(1.12); }
+.btn-hover-effect:active, button:active { transform: translate(2px, 2px); box-shadow: none !important; }
+.rounded-full { border-radius: 0 !important; }
+.rounded-2xl, .rounded-3xl, .rounded-xl, .rounded-lg { border-radius: 0 !important; }
+
+.staggered-list > * { animation: slideUp .35s steps(4, end) forwards; }
 
 @layer components {
   .glass-card {
@@ -67,17 +122,16 @@ body {
   }
 }
 
-/* Custom Scrollbar for a premium look */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 12px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #081218;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: #12d6a0;
+  border: 3px solid #081218;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #9dff38;
 }
