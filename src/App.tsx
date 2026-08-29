@@ -199,11 +199,18 @@ export default function App() {
 
   const generatePRs = () => {
     const templates: PRTemplate[] = [];
-    templates.push({
-      id: uid(), title: `Pull Shark Achievement PR`, branchName: `pull-shark-${Date.now()}`,
-      body: `Automated PR to progress the Pull Shark achievement.`, filePath: `README.md`,
-      fileContent: ''
-    });
+    // Pull Shark badge requires merging 4+ pull requests
+    // Generate 4 PRs with unique content
+    for (let i = 1; i <= 4; i++) {
+      templates.push({
+        id: uid(), 
+        title: `Pull Shark Achievement PR #${i}`,
+        branchName: `pull-shark-${i}-${Date.now()}`,
+        body: `Automated PR #${i} to progress the Pull Shark achievement.`, 
+        filePath: `README.md`,
+        fileContent: ''
+      });
+    }
     setPRTemplates(templates);
   };
 
