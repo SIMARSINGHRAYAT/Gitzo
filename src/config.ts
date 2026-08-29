@@ -1,0 +1,2 @@
+export const SUPPORT_REPOSITORY = 'simarsingh/placeholder'; // [INSERT ACTUAL GITHUB REPOSITORY URL HERE]
+export const MAINTAINER_PROFILE = 'simarsingh'; // [INSERT ACTUAL GITHUB PROFILE URL HERE]

@@ -24,19 +24,23 @@ import {
   GitPullRequest, GitMerge, GitBranch, Eye, EyeOff, Users, Award,
   Rocket, LogIn, ExternalLink,
 } from 'lucide-react';
+import { SupportProject } from './components/SupportProject';
+import { FeatureSelection } from './components/FeatureSelection';
+import { IncreaseStars } from './components/IncreaseStars';
+import { IncreaseFollowers } from './components/IncreaseFollowers';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const MAX_ITEMS = 300;
 const MAX_RATE_LIMIT_RETRIES = 3;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const FLOATING_GITHUB_LOGOS = [
-  { left: '4%', size: 'clamp(28px, 5vw, 72px)', delay: '-1s', duration: '8s' },
-  { left: '18%', size: 'clamp(38px, 6vw, 90px)', delay: '-4s', duration: '11s' },
-  { left: '32%', size: 'clamp(24px, 4vw, 58px)', delay: '-7s', duration: '9s' },
-  { left: '48%', size: 'clamp(44px, 7vw, 100px)', delay: '-2s', duration: '13s' },
-  { left: '64%', size: 'clamp(28px, 5vw, 70px)', delay: '-5s', duration: '10s' },
-  { left: '80%', size: 'clamp(36px, 5vw, 76px)', delay: '-6s', duration: '12s' },
-  { left: '93%', size: 'clamp(22px, 4vw, 54px)', delay: '-3s', duration: '9s' },
+  { left: '4%', size: 'clamp(28px, 5vw, 72px)', delay: '-0.5s', duration: '4s' },
+  { left: '18%', size: 'clamp(38px, 6vw, 90px)', delay: '-2s', duration: '5.5s' },
+  { left: '32%', size: 'clamp(24px, 4vw, 58px)', delay: '-3.5s', duration: '4.5s' },
+  { left: '48%', size: 'clamp(44px, 7vw, 100px)', delay: '-1s', duration: '6.5s' },
+  { left: '64%', size: 'clamp(28px, 5vw, 70px)', delay: '-2.5s', duration: '5s' },
+  { left: '80%', size: 'clamp(36px, 5vw, 76px)', delay: '-3s', duration: '6s' },
+  { left: '93%', size: 'clamp(22px, 4vw, 54px)', delay: '-1.5s', duration: '4.5s' },
 ];
 
 // ─── Utility ─────────────────────────────────────────────────────────
@@ -106,6 +110,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
+  const [appStep, setAppStep] = useState<'welcome' | 'support' | 'features' | 'badges' | 'stars' | 'followers'>('welcome');
   const [showAuth, setShowAuth] = useState(false);
   const [delayMs, setDelayMs] = useState(400);
 
@@ -137,7 +142,7 @@ export default function App() {
     setLoading(true);
     Promise.all([fetchGitHubUser(oauthToken), fetchPrimaryGitHubEmail(oauthToken), fetchAllRepos(oauthToken)]).then(([githubUser, email, repoData]) => {
       setUser(githubUser); setUserEmail(email); setToken(oauthToken);
-      setRepos(repoData); setStep(1);
+      setRepos(repoData); setAppStep('support');
     }).catch((err: Error) => setOauthError(err.message)).finally(() => setLoading(false));
   }, []);
 
@@ -356,7 +361,7 @@ export default function App() {
   };
   const disconnect = () => {
     cancelRef.current = true; pauseRef.current = false; setIsPaused(false);
-    setStep(0); setShowAuth(false); setToken(''); setUser(null); setUserEmail(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setCreatedItems([]); setError(''); setOauthError('');
+    setStep(0); setAppStep('welcome'); setShowAuth(false); setToken(''); setUser(null); setUserEmail(null); setRepos([]); setSelectedRepo(null); setCollaborators([]); setCreatedItems([]); setError(''); setOauthError('');
   };
 
   const successCount = createdItems.filter(i => i.status === 'success' || i.status === 'merged').length;
@@ -394,16 +399,15 @@ export default function App() {
         )}
 
         {/* STEP 0 */}
-        {step === 0 && !showAuth && (
+        {appStep === 'welcome' && !showAuth && (
           <div className="max-w-3xl mx-auto text-center min-w-0">
-            <p className="welcome-eyebrow font-black uppercase text-green-400 mb-6">A better way to build your GitHub story</p>
-            <h2 className="welcome-title font-black leading-tight text-white">GitHubBadges<span className="text-green-400">.com</span></h2>
+            <h2 className="welcome-title font-black leading-tight text-white">GitHubCrazy<span className="text-green-400">.com</span></h2>
             <p className="welcome-quote italic text-gray-300 font-medium leading-relaxed max-w-2xl mx-auto mt-8">“Programs must be written for people to read, and only incidentally for machines to execute.”</p>
             <button onClick={() => setShowAuth(true)} className="mt-10 px-12 py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-white/10 hover:bg-green-400 transition-all">Get Started</button>
           </div>
         )}
 
-        {step === 0 && showAuth && (
+        {appStep === 'welcome' && showAuth && (
           <div className="max-w-md mx-auto">
             <div className="glass-card p-10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-48 h-48 premium-gradient-purple blur-[100px] opacity-10"></div>
@@ -412,7 +416,7 @@ export default function App() {
                  <h3 className="text-xl font-black text-white tracking-widest uppercase">Welcome aboard</h3>
               </div>
               <div className="space-y-6">
-                <p className="text-sm text-gray-500 leading-relaxed">Sign in securely with GitHub OAuth. GitHubBadges never asks you to paste or manage a personal access token.</p>
+                <p className="text-sm text-gray-500 leading-relaxed">Sign in securely with GitHub OAuth. GitHubCrazy never asks you to paste or manage a personal access token.</p>
                 <button onClick={handleConnect} disabled={loading} className="w-full py-5 rounded-2xl bg-white text-gray-950 font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/10 hover:bg-green-400 disabled:opacity-50">
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Github className="w-5 h-5" />} {loading ? 'CONNECTING...' : 'SIGN IN VIA GITHUB'} <ExternalLink className="w-4 h-4" />
                 </button>
@@ -422,9 +426,38 @@ export default function App() {
           </div>
         )}
 
+        {/* SUPPORT PROJECT */}
+        {appStep === 'support' && token && (
+           <SupportProject token={token} onComplete={() => setAppStep('features')} />
+        )}
+
+        {/* FEATURE SELECTION */}
+        {appStep === 'features' && (
+           <FeatureSelection onSelectFeature={(feature) => {
+              if (feature === 'badges') {
+                setAppStep('badges');
+                setStep(1);
+              } else if (feature === 'stars') {
+                setAppStep('stars');
+              } else if (feature === 'followers') {
+                setAppStep('followers');
+              }
+           }} />
+        )}
+
+        {/* INCREASE STARS */}
+        {appStep === 'stars' && token && user && (
+           <IncreaseStars token={token} user={user} repos={repos} />
+        )}
+
+        {/* INCREASE FOLLOWERS */}
+        {appStep === 'followers' && token && user && (
+           <IncreaseFollowers token={token} user={user} />
+        )}
+
         {/* STEP 1 */}
-        {step === 1 && (
-          <div className="max-w-3xl mx-auto staggered-list text-left">
+        {appStep === 'badges' && step === 1 && (
+          <div className="max-w-3xl mx-auto staggered-list text-center">
             <div className="flex justify-end mb-5">
               <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
             </div>
@@ -486,8 +519,8 @@ export default function App() {
         )}
 
         {/* STEP 2 */}
-        {step === 2 && selectedRepo && (
-           <div className="max-w-5xl mx-auto space-y-10 text-left">
+        {appStep === 'badges' && step === 2 && selectedRepo && (
+           <div className="max-w-5xl mx-auto space-y-10 text-center">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-500">Choose an achievement workflow</p>
                 <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
@@ -574,8 +607,8 @@ export default function App() {
         )}
 
         {/* STEP 3 & 4 */}
-        {(step === 3 || step === 4) && (
-          <div className="max-w-4xl mx-auto space-y-8 text-left">
+        {appStep === 'badges' && (step === 3 || step === 4) && (
+          <div className="max-w-4xl mx-auto space-y-8 text-center">
              <div className="glass-card p-10 lg:p-14 relative overflow-hidden">
                 <div className="flex items-center justify-between mb-16">
                    <div className="flex items-center gap-6">
@@ -614,9 +647,9 @@ export default function App() {
         )}
       </main>
 
-      {(step !== 0 || showAuth) && (
+      {(appStep !== 'welcome' || showAuth) && (
         <footer className="py-20 text-center opacity-30">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubBadges.com</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700">&copy; {new Date().getFullYear()} GitHubCrazy.com</p>
         </footer>
       )}
     </div>

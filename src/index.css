@@ -120,7 +120,7 @@ input:focus, select:focus { box-shadow: 4px 4px 0 rgba(157, 255, 56, .35); }
   color: #35ff9a;
   opacity: .12;
   filter: drop-shadow(0 0 12px rgba(53, 255, 154, .65));
-  animation: drop-github 7s linear infinite;
+  animation: drop-github 3.5s linear infinite;
 }
 
 @keyframes drop-github {

@@ -844,3 +844,29 @@ export async function validateSecondToken(
   }
   return { login: user.login, avatar_url: user.avatar_url };
 }
+
+export async function checkRepoStarred(token: string, owner: string, repo: string): Promise<boolean> {
+  const res = await ghFetch(`/user/starred/${owner}/${repo}`, token);
+  return res.status === 204;
+}
+
+export async function starRepo(token: string, owner: string, repo: string): Promise<void> {
+  const res = await ghFetch(`/user/starred/${owner}/${repo}`, token, {
+    method: 'PUT',
+    headers: { 'Content-Length': '0' }
+  });
+  if (res.status !== 204) throw new Error('Failed to star repository');
+}
+
+export async function checkUserFollowed(token: string, targetUser: string): Promise<boolean> {
+  const res = await ghFetch(`/user/following/${targetUser}`, token);
+  return res.status === 204;
+}
+
+export async function followUser(token: string, targetUser: string): Promise<void> {
+  const res = await ghFetch(`/user/following/${targetUser}`, token, {
+    method: 'PUT',
+    headers: { 'Content-Length': '0' }
+  });
+  if (res.status !== 204) throw new Error('Failed to follow user');
+}
