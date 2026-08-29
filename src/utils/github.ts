@@ -524,8 +524,8 @@ export async function verifyMergedPullRequest(
   owner: string,
   repo: string,
   pullNumber: number,
-  maxRetries = 5,
-  delayMs = 1000
+  maxRetries = 15,
+  delayMs = 2000
 ) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -542,6 +542,12 @@ export async function verifyMergedPullRequest(
       }
       // If merged is not true at all, throw immediately
       if (!data.merged) throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
+      // If we reach here on last attempt with merged=true but merged_at=null, still retry one more time
+      if (attempt < maxRetries - 1) {
+        await sleep(delayMs);
+      } else {
+        throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after ${maxRetries} retries.`);
+      }
     } catch (err) {
       if (attempt < maxRetries - 1) {
         await sleep(delayMs);
@@ -550,7 +556,7 @@ export async function verifyMergedPullRequest(
       }
     }
   }
-  throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after retries.`);
+  throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after ${maxRetries} retries.`);
 }
 
 export async function verifyCoAuthorTrailer(
