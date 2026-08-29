@@ -9,7 +9,7 @@ import {
   createBranch, createFileOnBranch, createPullRequest,
   createMultiFileCommitWithCoAuthors,
   waitForMergeable, mergePullRequest, verifyMergedPullRequest, verifyCoAuthorTrailer, deleteBranch,
-  createIssue, closeIssue, requestPRReview
+  createIssue, closeIssue, requestPRReview, createRepository, getFileContent
 } from './utils/github';
 import { cn } from './utils/cn';
 import quickdrawBadge from '../logo/starstruck-default--light-a594e2a027e0.png';
@@ -89,6 +89,8 @@ export default function App() {
   const [permissionError, setPermissionError] = useState('');
   const [collaborators, setCollaborators] = useState<GitHubCollaborator[]>([]);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
+  const [newRepoName, setNewRepoName] = useState('');
+  const [creatingRepo, setCreatingRepo] = useState(false);
 
   // Template state
   const [quickdrawBadgeTemplates, setQuickdrawBadgeTemplates] = useState<QuickdrawBadgeTemplate[]>([]);
@@ -102,6 +104,7 @@ export default function App() {
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>('merge');
   const [deleteBranchAfterMerge, setDeleteBranchAfterMerge] = useState(true);
   const [coAuthors, setCoAuthors] = useState<CoAuthor[]>([{ name: '', email: '' }]);
+  const [pullSharkReviewer, setPullSharkReviewer] = useState('');
 
   // Progress state
   const [createdItems, setCreatedItems] = useState<CreatedItem[]>([]);
@@ -165,6 +168,22 @@ export default function App() {
     } finally { setCollaboratorsLoading(false); }
   };
 
+  const handleCreateRepo = async () => {
+    if (!newRepoName) return;
+    setCreatingRepo(true);
+    setError('');
+    try {
+      const newRepo = await createRepository(token, newRepoName);
+      setRepos(prev => [newRepo, ...prev]);
+      await handleSelectRepo(newRepo);
+      setNewRepoName('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreatingRepo(false);
+    }
+  };
+
   const generateQuickdrawBadge = () => {
     setQuickdrawBadgeTemplates([{ id: uid(), title: `Quickdraw Badge Update`, body: `Automated issue closure at ${new Date().toISOString()}` }]);
   };
@@ -180,13 +199,11 @@ export default function App() {
 
   const generatePRs = () => {
     const templates: PRTemplate[] = [];
-    for (let i = 1; i <= 2; i++) {
-      templates.push({
-        id: uid(), title: `Automated PR #${i}`, branchName: `auto-pr-${i}-${Date.now()}`,
-        body: `Automated batch process node #${i}.`, filePath: `testing/file-${i}.txt`,
-        fileContent: `Node #${i} content generated at ${new Date().toISOString()}`
-      });
-    }
+    templates.push({
+      id: uid(), title: `Pull Shark Achievement PR`, branchName: `pull-shark-${Date.now()}`,
+      body: `Automated PR to progress the Pull Shark achievement.`, filePath: `README.md`,
+      fileContent: ''
+    });
     setPRTemplates(templates);
   };
 
@@ -283,10 +300,23 @@ export default function App() {
         if (cancelRef.current) break;
          const pr = prTemplates[i];
          try {
-           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Creating branch...' } : ci));
+           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Fetching README...' } : ci));
+           const currentContent = await getFileContent(token, owner, repo, pr.filePath, base);
+           const newContent = currentContent + `\n\n<!-- pull-shark-update-${Date.now()} -->\nAutomated update for Pull Shark at ${new Date().toISOString()}`;
+           
+           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: 'Creating branch...' } : ci));
            await createBranch(token, owner, repo, pr.branchName, baseSHA);
-          await createFileOnBranch(token, owner, repo, pr.branchName, pr.filePath, pr.fileContent, `Add ${pr.filePath}`, commitAuthor);
+           await createFileOnBranch(token, owner, repo, pr.branchName, pr.filePath, newContent, `Update ${pr.filePath}`, commitAuthor);
+           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: 'Opening Pull Request...' } : ci));
            const result = await createPullRequest(token, owner, repo, pr.title, pr.body, pr.branchName, base);
+           
+           const reviewer = pullSharkReviewer.trim();
+           if (reviewer) {
+             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: `Requesting review from @${reviewer}...` } : ci));
+             await requestPRReview(token, owner, repo, result.number, [reviewer]);
+             await delay(2000);
+           }
+
            if (autoMerge) {
              setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
              const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
@@ -328,7 +358,16 @@ export default function App() {
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Creating branch...' } : ci));
            await createBranch(token, owner, repo, pt.branchName, baseSHA);
            await createMultiFileCommitWithCoAuthors(token, owner, repo, pt.branchName, pt.files, pt.title, pt.coAuthors, commitAuthor);
+           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: 'Opening Pull Request...' } : ci));
            const result = await createPullRequest(token, owner, repo, pt.title, pt.body, pt.branchName, base);
+           
+           const reviewer = pt.coAuthors[0].name.trim();
+           if (reviewer) {
+             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: `Requesting review from @${reviewer}...` } : ci));
+             await requestPRReview(token, owner, repo, result.number, [reviewer]);
+             await delay(2000);
+           }
+
            setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
            const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
            if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
@@ -497,6 +536,15 @@ export default function App() {
                   </div>
                 )}
               </div>
+              <div className="mb-10 text-left">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Or create a new public repository</p>
+                <div className="flex items-center gap-3">
+                  <input type="text" value={newRepoName} onChange={e => setNewRepoName(e.target.value)} placeholder="e.g. badges-playground" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-purple-500/50 outline-none transition-all" />
+                  <button onClick={handleCreateRepo} disabled={creatingRepo || !newRepoName} className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all flex items-center justify-center min-w-[120px]">
+                    {creatingRepo ? <Loader2 className="w-4 h-4 animate-spin" /> : 'CREATE'}
+                  </button>
+                </div>
+              </div>
               {selectedRepo && (
                  <div className="mb-10 grid grid-cols-2 gap-4 animate-in fade-in duration-500">
                     <div className="p-6 glass-card !bg-white/2 border-white/5">
@@ -575,6 +623,13 @@ export default function App() {
                        {appMode === 'pull_shark' && (
                          <div className="space-y-6 w-full">
                            <div className="p-6 glass-card !bg-green-500/5 border-green-500/10 text-xs text-gray-500 leading-relaxed font-bold uppercase tracking-widest">Create authentic pull requests in your selected repository to progress the Pull Shark achievement.</div>
+                           <div className="space-y-2">
+                               <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest">Reviewer Username (Optional)</label>
+                               <select value={pullSharkReviewer} onChange={e => setPullSharkReviewer(e.target.value)} disabled={collaboratorsLoading || collaborators.length === 0} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white disabled:text-gray-700">
+                                 <option value="">{collaboratorsLoading ? 'Loading collaborators...' : collaborators.length ? 'Select collaborator' : 'No collaborators found'}</option>
+                                 {collaborators.map(collaborator => <option key={collaborator.id} value={collaborator.login}>{collaborator.login}</option>)}
+                               </select>
+                           </div>
                            <button onClick={() => setAutoMerge(!autoMerge)} className="w-full py-4 text-xs font-black uppercase tracking-widest border border-white/10 rounded-2xl text-gray-400">AUTO-MERGE: {autoMerge ? 'ON' : 'OFF'}</button>
                            <button onClick={generatePRs} className="w-full py-5 rounded-2xl premium-gradient-green text-white font-black text-xs uppercase tracking-widest">GENERATE PULL REQUESTS</button>
                          </div>

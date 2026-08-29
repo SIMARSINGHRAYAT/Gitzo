@@ -63,7 +63,10 @@ export async function fetchRepoCollaborators(token: string, owner: string, repo:
   let page = 1;
   while (page <= 5) {
     const res = await ghFetch(`/repos/${owner}/${repo}/collaborators?per_page=100&page=${page}`, token);
-    if (!res.ok) return collaborators;
+    if (!res.ok) {
+      if (res.status === 403 || res.status === 404) return []; // no permission or not found
+      return collaborators; // Ignore other errors or handle them gracefully
+    }
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) break;
     collaborators.push(...data);
@@ -71,6 +74,30 @@ export async function fetchRepoCollaborators(token: string, owner: string, repo:
     page++;
   }
   return collaborators;
+}
+
+export async function createRepository(token: string, name: string): Promise<GitHubRepo> {
+  const res = await ghFetch('/user/repos', token, {
+    method: 'POST',
+    body: JSON.stringify({ name, auto_init: true, private: false }),
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) await handleGitError(res, 'Failed to create repository');
+  return res.json();
+}
+
+export async function getFileContent(token: string, owner: string, repo: string, path: string, ref?: string): Promise<string> {
+  const url = `/repos/${owner}/${repo}/contents/${path}` + (ref ? `?ref=${ref}` : '');
+  const res = await ghFetch(url, token);
+  if (!res.ok) {
+    if (res.status === 404) return ''; // file doesn't exist
+    await handleGitError(res, `Failed to get file content for ${path}`);
+  }
+  const data = await res.json();
+  if (data.encoding === 'base64') {
+    return decodeURIComponent(escape(atob(data.content)));
+  }
+  return data.content || '';
 }
 
 export async function testRepoPermission(
