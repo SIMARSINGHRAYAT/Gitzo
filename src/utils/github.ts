@@ -524,31 +524,38 @@ export async function verifyMergedPullRequest(
   owner: string,
   repo: string,
   pullNumber: number,
-  maxRetries = 15,
-  delayMs = 2000
+  maxRetries = 25,
+  delayMs = 3000
 ) {
+  let lastData: any = null;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const res = await ghFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`, token);
       if (!res.ok) await handleGitError(res, `Failed to verify PR #${pullNumber}`);
       const data = await res.json() as { merged?: boolean; merged_at?: string | null; merge_commit_sha?: string | null };
+      lastData = data;
+      
+      // Success: merged is true and merged_at is populated
       if (data.merged && data.merged_at) {
         return data;
       }
-      // If merged is true but merged_at is still null, GitHub is processing — retry
-      if (data.merged && !data.merged_at && attempt < maxRetries - 1) {
-        await sleep(delayMs);
-        continue;
+      
+      // Merged but timestamp not yet populated - GitHub is still updating metadata
+      if (data.merged && !data.merged_at) {
+        if (attempt < maxRetries - 1) {
+          await sleep(delayMs);
+          continue;
+        }
+        // On final attempt, if merged=true, accept it and return (GitHub might be slow)
+        return data;
       }
-      // If merged is not true at all, throw immediately
-      if (!data.merged) throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
-      // If we reach here on last attempt with merged=true but merged_at=null, still retry one more time
-      if (attempt < maxRetries - 1) {
-        await sleep(delayMs);
-      } else {
-        throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after ${maxRetries} retries.`);
+      
+      // Not merged at all - this is a real failure
+      if (!data.merged) {
+        throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
       }
     } catch (err) {
+      // Network/API errors - retry
       if (attempt < maxRetries - 1) {
         await sleep(delayMs);
       } else {
@@ -556,7 +563,13 @@ export async function verifyMergedPullRequest(
       }
     }
   }
-  throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after ${maxRetries} retries.`);
+  
+  // Final fallback: if we have data showing merged=true, accept it
+  if (lastData && lastData.merged) {
+    return lastData;
+  }
+  
+  throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after ${maxRetries * delayMs / 1000} seconds of retries.`);
 }
 
 export async function verifyCoAuthorTrailer(
