@@ -519,12 +519,38 @@ export async function requestPRReview(
   return res.json();
 }
 
-export async function verifyMergedPullRequest(token: string, owner: string, repo: string, pullNumber: number) {
-  const res = await ghFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`, token);
-  if (!res.ok) await handleGitError(res, `Failed to verify PR #${pullNumber}`);
-  const data = await res.json() as { merged?: boolean; merged_at?: string | null; merge_commit_sha?: string | null };
-  if (!data.merged || !data.merged_at) throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
-  return data;
+export async function verifyMergedPullRequest(
+  token: string,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  maxRetries = 5,
+  delayMs = 1000
+) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await ghFetch(`/repos/${owner}/${repo}/pulls/${pullNumber}`, token);
+      if (!res.ok) await handleGitError(res, `Failed to verify PR #${pullNumber}`);
+      const data = await res.json() as { merged?: boolean; merged_at?: string | null; merge_commit_sha?: string | null };
+      if (data.merged && data.merged_at) {
+        return data;
+      }
+      // If merged is true but merged_at is still null, GitHub is processing — retry
+      if (data.merged && !data.merged_at && attempt < maxRetries - 1) {
+        await sleep(delayMs);
+        continue;
+      }
+      // If merged is not true at all, throw immediately
+      if (!data.merged) throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub.`);
+    } catch (err) {
+      if (attempt < maxRetries - 1) {
+        await sleep(delayMs);
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error(`PR #${pullNumber} was not recorded as merged by GitHub after retries.`);
 }
 
 export async function verifyCoAuthorTrailer(
