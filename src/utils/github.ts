@@ -942,3 +942,142 @@ export async function followUser(token: string, targetUser: string): Promise<voi
   });
   if (res.status !== 204) throw new Error('Failed to follow user');
 }
+
+/**
+ * Fetch user data including public achievements/badges
+ * This checks what GitHub itself recognizes about the user's activities
+ */
+export async function fetchUserWithAchievements(token: string, username: string): Promise<{
+  login: string;
+  name: string | null;
+  public_repos: number;
+  followers: number;
+  following: number;
+  created_at: string;
+}> {
+  const res = await ghFetch(`/users/${username}`, token);
+  if (!res.ok) throw new Error(`Failed to fetch user ${username}`);
+  return res.json();
+}
+
+/**
+ * Get statistics about user's pull requests across all repositories
+ * This helps verify Pull Shark badge eligibility
+ */
+export async function fetchUserPRStatistics(token: string, username: string): Promise<{
+  total_merged_prs: number;
+  repositories_with_merged_prs: string[];
+}> {
+  // Fetch all repos the user has contributed to
+  const reposRes = await ghFetch(`/users/${username}/repos?per_page=100&type=all&sort=updated`, token);
+  if (!reposRes.ok) throw new Error('Failed to fetch repositories');
+  const repos = await reposRes.json() as Array<{ full_name: string; owner: { login: string }; name: string }>;
+  
+  let total_merged = 0;
+  const repos_with_merges: Set<string> = new Set();
+  
+  // For each repo, check for merged PRs by this user
+  for (const repo of repos.slice(0, 10)) { // Check first 10 repos to avoid rate limits
+    const prsRes = await ghFetch(
+      `/search/issues?q=type:pr+author:${username}+repo:${repo.owner.login}/${repo.name}+is:merged&per_page=1`,
+      token
+    );
+    if (prsRes.ok) {
+      const data = await prsRes.json() as { total_count: number };
+      if (data.total_count > 0) {
+        total_merged += data.total_count;
+        repos_with_merges.add(repo.full_name);
+      }
+    }
+  }
+  
+  return {
+    total_merged_prs: total_merged,
+    repositories_with_merged_prs: Array.from(repos_with_merges)
+  };
+}
+
+/**
+ * Verify co-authored commits for a specific user across repositories
+ * This helps verify Pair Extraordinaire badge eligibility
+ */
+export async function fetchUserCoAuthoredCommits(token: string, username: string): Promise<{
+  total_co_authored: number;
+  commits_with_trailers: Array<{ repo: string; message: string; co_authors: string[] }>;
+}> {
+  // Search for commits with co-authored-by trailers by this user
+  const searchRes = await ghFetch(
+    `/search/commits?q=author:${username}+"Co-authored-by"&per_page=10`,
+    token
+  );
+  
+  if (!searchRes.ok) {
+    return { total_co_authored: 0, commits_with_trailers: [] };
+  }
+  
+  const searchData = await searchRes.json() as { total_count: number; items?: Array<any> };
+  
+  const commits_with_trailers = (searchData.items || [])
+    .map(item => {
+      const message = item.commit?.message || '';
+      const coAuthorMatches = message.match(/Co-authored-by: ([^<]+) <([^>]+)>/g) || [];
+      return {
+        repo: item.repository?.full_name || 'unknown',
+        message: message.substring(0, 100),
+        co_authors: coAuthorMatches.map(m => m.replace(/Co-authored-by: /, ''))
+      };
+    });
+  
+  return {
+    total_co_authored: searchData.total_count,
+    commits_with_trailers
+  };
+}
+
+/**
+ * Diagnostic function to help troubleshoot why badges aren't appearing
+ * Returns a detailed analysis of badge eligibility
+ */
+export async function diagnoseAchievementEligibility(token: string, username: string): Promise<{
+  pull_shark_eligible: boolean;
+  pull_shark_details: { merged_prs: number; min_required: number; repos_contributed: number };
+  pair_extraordinaire_eligible: boolean;
+  pair_extraordinaire_details: { co_authored_commits: number; min_required: number };
+  recommendations: string[];
+}> {
+  const prStats = await fetchUserPRStatistics(token, username);
+  const coAuthorStats = await fetchUserCoAuthoredCommits(token, username);
+  
+  const recommendations: string[] = [];
+  
+  // Pull Shark: Needs 2+ merged PRs
+  const pull_shark_eligible = prStats.total_merged_prs >= 2;
+  if (!pull_shark_eligible) {
+    recommendations.push(`Pull Shark: Need ${2 - prStats.total_merged_prs} more merged PRs`);
+  }
+  
+  // Pair Extraordinaire: Needs co-authored commits
+  const pair_extraordinaire_eligible = coAuthorStats.total_co_authored >= 1;
+  if (!pair_extraordinaire_eligible) {
+    recommendations.push('Pair Extraordinaire: Need at least 1 co-authored commit');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('✓ All badges should be eligible - check GitHub profile settings or wait for badge sync');
+  }
+  
+  return {
+    pull_shark_eligible,
+    pull_shark_details: {
+      merged_prs: prStats.total_merged_prs,
+      min_required: 2,
+      repos_contributed: prStats.repositories_with_merged_prs.length
+    },
+    pair_extraordinaire_eligible,
+    pair_extraordinaire_details: {
+      co_authored_commits: coAuthorStats.total_co_authored,
+      min_required: 1
+    },
+    recommendations
+  };
+}
