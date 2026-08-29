@@ -199,9 +199,9 @@ export default function App() {
 
   const generatePRs = () => {
     const templates: PRTemplate[] = [];
-    // Pull Shark badge requires merging 4+ pull requests
-    // Generate 4 PRs with unique content
-    for (let i = 1; i <= 4; i++) {
+    // Pull Shark badge requires merging 2+ pull requests
+    // Generate 2 PRs with unique content
+    for (let i = 1; i <= 2; i++) {
       templates.push({
         id: uid(), 
         title: `Pull Shark Achievement PR #${i}`,
