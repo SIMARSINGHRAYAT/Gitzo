@@ -308,7 +308,10 @@ export default function App() {
     
     const items: CreatedItem[] = [];
     setCreatedItems(items);
-    const owner = selectedRepo.owner.login;
+    
+    // Get the authenticated user's login (not the selected repo's owner)
+    const user = await fetchGitHubUser(token);
+    const authenticatedUser = user.login;
     
     try {
       // Create 2 separate repositories for Pull Shark achievement
@@ -328,6 +331,7 @@ export default function App() {
           // Create repository
           setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'creating', substatus: 'Creating repository...' } : ci));
           const newRepo = await createRepository(token, repoName);
+          const owner = newRepo.owner.login;  // Use the ACTUAL owner of the new repo
           
           // Get default branch SHA
           let baseSHA = await getDefaultBranchSHA(token, owner, newRepo.name, newRepo.default_branch);
