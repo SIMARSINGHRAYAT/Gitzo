@@ -221,11 +221,20 @@ export default function App() {
 
   const generatePairTemplates = () => {
     const valid = coAuthors.filter(ca => ca.name && ca.email);
-    if (valid.length === 0 || valid.some(ca => !isValidEmail(ca.email))) { setError('Every collaborator needs a valid email associated with their GitHub account.'); return; }
+    if (valid.length === 0 || valid.some(ca => !isValidEmail(ca.email))) { 
+      setError('Every collaborator needs a valid email associated with their GitHub account.'); 
+      return; 
+    }
+    
+    // CRITICAL: Pair Extraordinaire requires the co-author's EMAIL to be registered with their GitHub account
+    // The email in the "Co-authored-by" trailer MUST match an email in their GitHub settings
+    setError(''); // Clear any previous errors
+    
     setPairTemplates([{
       id: uid(), title: `Pair Session #1`, branchName: `pair-1-${Date.now()}`,
-      body: `Co-authored session with ${valid.length} collaborators.`, coAuthors: valid,
-      files: [{ path: `pair/log-1.md`, content: `Pair session content generated at ${new Date().toISOString()}` }]
+      body: `Co-authored session with ${valid.length} collaborator(s).\n\nIMPORTANT: For Pair Extraordinaire badge, the co-author email must be registered in their GitHub account settings.`, 
+      coAuthors: valid,
+      files: [{ path: `pair/session-${Date.now()}.md`, content: `# Pair Programming Session\n\nParticipants: ${valid.map(ca => ca.name).join(', ')}\nCreated: ${new Date().toISOString()}\n\nPair session for Pair Extraordinaire achievement.` }]
     }]);
   };
 

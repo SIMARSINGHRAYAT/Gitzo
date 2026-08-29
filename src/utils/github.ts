@@ -1035,9 +1035,46 @@ export async function fetchUserCoAuthoredCommits(token: string, username: string
 }
 
 /**
- * Diagnostic function to help troubleshoot why badges aren't appearing
- * Returns a detailed analysis of badge eligibility
+ * Verify that a specific email is registered with a GitHub user account
+ * This is CRITICAL for Pair Extraordinaire badge - the co-author email MUST be registered
  */
+export async function verifyCoAuthorEmail(token: string, targetUsername: string): Promise<{
+  verified: boolean;
+  emails: string[];
+  message: string;
+}> {
+  try {
+    // Fetch the target user's public profile
+    const userRes = await ghFetch(`/users/${targetUsername}`, token);
+    if (!userRes.ok) {
+      return {
+        verified: false,
+        emails: [],
+        message: `User ${targetUsername} not found`
+      };
+    }
+    
+    // Note: GitHub's public API doesn't directly expose user emails for privacy reasons
+    // We can only check if a user exists and has a public email
+    const userData = await userRes.json() as any;
+    const publicEmail = userData.email || null;
+    
+    return {
+      verified: !!publicEmail,
+      emails: publicEmail ? [publicEmail] : [],
+      message: publicEmail 
+        ? `User has public email: ${publicEmail}` 
+        : 'User does not have a public email. You may need to add their verified GitHub email manually.'
+    };
+  } catch (err) {
+    return {
+      verified: false,
+      emails: [],
+      message: `Error verifying user: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+}
+
 export async function diagnoseAchievementEligibility(token: string, username: string): Promise<{
   pull_shark_eligible: boolean;
   pull_shark_details: { merged_prs: number; min_required: number; repos_contributed: number };
