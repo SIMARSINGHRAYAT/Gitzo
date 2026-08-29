@@ -198,19 +198,18 @@ export default function App() {
   };
 
   const generatePRs = () => {
+    // CRITICAL: Pull Shark badge requires PRs merged in DIFFERENT repositories
+    // The workflow will automatically create 2 new repositories
     const templates: PRTemplate[] = [];
-    // Pull Shark badge requires merging 2+ pull requests
-    // Generate 2 PRs with unique content
-    for (let i = 1; i <= 2; i++) {
-      templates.push({
-        id: uid(), 
-        title: `Pull Shark Achievement PR #${i}`,
-        branchName: `pull-shark-${i}-${Date.now()}`,
-        body: `Automated PR #${i} to progress the Pull Shark achievement.`, 
-        filePath: `README.md`,
-        fileContent: ''
-      });
-    }
+    // We only need one template - the workflow handles repository creation
+    templates.push({
+      id: uid(), 
+      title: `Pull Shark Achievement`,
+      branchName: `pull-shark-${Date.now()}`,
+      body: `Contribution to Pull Shark achievement.`, 
+      filePath: `README.md`,
+      fileContent: ''
+    });
     setPRTemplates(templates);
   };
 
@@ -293,56 +292,95 @@ export default function App() {
 
   const startCreatingPRs = async () => {
     if (!selectedRepo) return;
-    const vError = validatePRConfig(prTemplates); if (vError) { setError(vError); return; }
+    // CRITICAL FIX: Pull Shark requires merging PRs in DIFFERENT repositories
+    // Create 2 repositories automatically and merge a PR in each one
     cancelRef.current = false; pauseRef.current = false; setIsPaused(false);
-    setStep(3); setIsCreating(true);
-    const items: CreatedItem[] = prTemplates.map(p => ({ id: p.id, title: p.title, type: 'pull_shark', status: 'pending', branchName: p.branchName }));
+    setStep(3); setIsCreating(true); setError('');
+    
+    const items: CreatedItem[] = [];
     setCreatedItems(items);
-    const owner = selectedRepo.owner.login; const repo = selectedRepo.name; const base = selectedRepo.default_branch;
+    const owner = selectedRepo.owner.login;
+    
     try {
-      let baseSHA = await getDefaultBranchSHA(token, owner, repo, base);
-      for (let i = 0; i < prTemplates.length; i++) {
-         if (cancelRef.current) break;
-        await waitWhilePaused();
-        if (cancelRef.current) break;
-         const pr = prTemplates[i];
-         try {
-           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'creating', substatus: 'Fetching README...' } : ci));
-           const currentContent = await getFileContent(token, owner, repo, pr.filePath, base);
-           const newContent = currentContent + `\n\n<!-- pull-shark-update-${Date.now()} -->\nAutomated update for Pull Shark at ${new Date().toISOString()}`;
-           
-           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: 'Creating branch...' } : ci));
-           await createBranch(token, owner, repo, pr.branchName, baseSHA);
-           await createFileOnBranch(token, owner, repo, pr.branchName, pr.filePath, newContent, `Update ${pr.filePath}`, commitAuthor);
-           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: 'Opening Pull Request...' } : ci));
-           const result = await createPullRequest(token, owner, repo, pr.title, pr.body, pr.branchName, base);
-           
-           const reviewer = pullSharkReviewer.trim();
-           if (reviewer) {
-             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, substatus: `Requesting review from @${reviewer}...` } : ci));
-             await requestPRReview(token, owner, repo, result.number, [reviewer]);
-             await delay(2000);
-           }
-
-           if (autoMerge) {
-             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merging', substatus: 'Merging...', url: result.html_url, number: result.number } : ci));
-             const mergeState = await waitForMergeable(token, owner, repo, result.number, 45, 1000);
-             if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) throw new Error(`PR #${result.number} cannot be merged: ${mergeState.mergeable_state}.`);
-             const mergeResult = await mergePullRequest(token, owner, repo, result.number, mergeMethod, 3);
-             if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${result.number}.`);
-             await verifyMergedPullRequest(token, owner, repo, result.number);
-             if (deleteBranchAfterMerge) try { await deleteBranch(token, owner, repo, pr.branchName); } catch {}
-             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'merged', merged: true, substatus: undefined, url: result.html_url, number: result.number } : ci));
-             try { await delay(500); baseSHA = await getDefaultBranchSHAWithRetry(token, owner, repo, base, baseSHA, 3, 1000); } catch {}
-           } else {
-             setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'success', url: result.html_url, number: result.number, substatus: 'PR opened - waiting for manual merge' } : ci));
-           }
-         } catch (e: any) {
-           setCreatedItems(prev => prev.map((ci, idx) => idx === i ? { ...ci, status: 'error', error: e.message } : ci));
-         }
-         await delay(delayMs);
+      // Create 2 separate repositories for Pull Shark achievement
+      for (let repoNum = 1; repoNum <= 2; repoNum++) {
+        const repoName = `pull-shark-repo-${repoNum}-${Date.now()}`;
+        const itemId = `pull-shark-${repoNum}-${Date.now()}`;
+        const item: CreatedItem = {
+          id: itemId,
+          title: `Pull Shark - Repository ${repoNum}`,
+          type: 'pull_shark',
+          status: 'pending',
+          branchName: `feature-${repoNum}`
+        };
+        setCreatedItems(prev => [...prev, item]);
+        
+        try {
+          // Create repository
+          setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'creating', substatus: 'Creating repository...' } : ci));
+          const newRepo = await createRepository(token, repoName);
+          
+          // Get default branch SHA
+          let baseSHA = await getDefaultBranchSHA(token, owner, newRepo.name, newRepo.default_branch);
+          const base = newRepo.default_branch;
+          
+          // Create branch
+          setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, substatus: 'Creating branch...' } : ci));
+          await createBranch(token, owner, newRepo.name, `feature-${repoNum}`, baseSHA);
+          
+          // Modify README
+          setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, substatus: 'Modifying README...' } : ci));
+          const currentContent = await getFileContent(token, owner, newRepo.name, 'README.md', base);
+          const newContent = currentContent + `\n\n<!-- Pull Shark Achievement PR ${repoNum} -->\nUpdated at ${new Date().toISOString()}`;
+          await createFileOnBranch(token, owner, newRepo.name, `feature-${repoNum}`, 'README.md', newContent, `Update README for Pull Shark ${repoNum}`, commitAuthor);
+          
+          // Create PR
+          setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, substatus: 'Creating PR...' } : ci));
+          const pr = await createPullRequest(token, owner, newRepo.name, `Pull Shark Achievement PR ${repoNum}`, `Contribution to Pull Shark achievement. Repository #${repoNum}.`, `feature-${repoNum}`, base);
+          
+          // Request review if specified
+          const reviewer = pullSharkReviewer.trim();
+          if (reviewer) {
+            setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, substatus: `Requesting review...` } : ci));
+            try {
+              await requestPRReview(token, owner, newRepo.name, pr.number, [reviewer]);
+              await delay(2000);
+            } catch (e) {
+              // Continue even if review request fails
+            }
+          }
+          
+          // Merge PR
+          if (autoMerge) {
+            setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'merging', substatus: 'Checking mergeability...' } : ci));
+            const mergeState = await waitForMergeable(token, owner, newRepo.name, pr.number, 45, 1000);
+            if (!mergeState.mergeable && !mergeState.mergeable_state.includes('still calculating')) {
+              throw new Error(`PR #${pr.number} cannot be merged: ${mergeState.mergeable_state}.`);
+            }
+            
+            setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, substatus: 'Merging...' } : ci));
+            const mergeResult = await mergePullRequest(token, owner, newRepo.name, pr.number, mergeMethod, 3);
+            if (!mergeResult.merged) throw new Error(`GitHub did not merge PR #${pr.number}.`);
+            
+            await verifyMergedPullRequest(token, owner, newRepo.name, pr.number);
+            
+            if (deleteBranchAfterMerge) {
+              try { await deleteBranch(token, owner, newRepo.name, `feature-${repoNum}`); } catch {}
+            }
+            
+            setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'merged', merged: true, substatus: undefined, url: pr.html_url, number: pr.number } : ci));
+          } else {
+            setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'success', url: pr.html_url, number: pr.number, substatus: 'PR opened - waiting for manual merge' } : ci));
+          }
+        } catch (e: any) {
+          setCreatedItems(prev => prev.map(ci => ci.id === itemId ? { ...ci, status: 'error', error: e.message } : ci));
+        }
+        
+        await delay(delayMs);
       }
-    } catch (err: any) { setError(err.message); }
+    } catch (err: any) { 
+      setError(err.message); 
+    }
     setIsCreating(false); setStep(4);
   };
 
