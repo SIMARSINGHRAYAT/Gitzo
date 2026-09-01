@@ -1024,7 +1024,7 @@ export async function fetchUserCoAuthoredCommits(token: string, username: string
       return {
         repo: item.repository?.full_name || 'unknown',
         message: message.substring(0, 100),
-        co_authors: coAuthorMatches.map(m => m.replace(/Co-authored-by: /, ''))
+        co_authors: coAuthorMatches.map((m: string) => m.replace(/Co-authored-by: /, ''))
       };
     });
   

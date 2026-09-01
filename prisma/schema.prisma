@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id String @id @default(cuid())
+  
+  // GitHub info
+  githubId Int @unique
+  githubUsername String @unique
+  githubName String?
+  githubAvatar String?
+  githubBio String?
+  githubFollowersCount Int @default(0)
+  githubFollowingCount Int @default(0)
+  
+  // Requirement tracking
+  repositoryStarred Boolean @default(false)
+  maintainerFollowed Boolean @default(false)
+  lastRequirementCheck DateTime?
+  
+  // Social
+  followers Follows[] @relation("following")
+  following Follows[] @relation("follower")
+  
+  // Follow tracking for daily limit
+  dailyFollows DailyFollowLimit[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([githubId])
+  @@index([githubUsername])
+}
+
+// Follow relationship
+model Follows {
+  id String @id @default(cuid())
+  
+  followerId String
+  follower User @relation("following", fields: [followerId], references: [id], onDelete: Cascade)
+  
+  followingId String
+  following User @relation("follower", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  // Prevent duplicate follows
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// Daily follow limit tracking
+// Tracks each new follow action per day for rate limiting
+model DailyFollowLimit {
+  id String @id @default(cuid())
+  
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Date of the follow action (just date, not time)
+  date DateTime @db.Date
+  
+  // Count of new follows this user made today
+  count Int @default(1)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}

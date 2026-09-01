@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { checkRepoStarred, starRepo, checkUserFollowed, followUser } from '../utils/github';
 import { SUPPORT_REPOSITORY, MAINTAINER_PROFILE } from '../config';
+import { checkUserStatus } from '../utils/api';
 import { Star, UserPlus, CheckCircle2, Loader2, ChevronRight } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -23,13 +24,11 @@ export function SupportProject({ token, onComplete }: SupportProjectProps) {
     let mounted = true;
     async function checkStatus() {
       try {
-        const [starred, followed] = await Promise.all([
-          checkRepoStarred(token, repoOwner, repoName),
-          checkUserFollowed(token, MAINTAINER_PROFILE)
-        ]);
+        // Use server-side verification
+        const status = await checkUserStatus(token);
         if (mounted) {
-          setIsStarred(starred);
-          setIsFollowed(followed);
+          setIsStarred(status.repositoryStarred);
+          setIsFollowed(status.maintainerFollowed);
           setChecking(false);
         }
       } catch (err: any) {
@@ -41,7 +40,7 @@ export function SupportProject({ token, onComplete }: SupportProjectProps) {
     }
     checkStatus();
     return () => { mounted = false; };
-  }, [token, repoOwner, repoName]);
+  }, [token]);
 
   const handleStar = async () => {
     if (isStarred) return;
@@ -49,7 +48,9 @@ export function SupportProject({ token, onComplete }: SupportProjectProps) {
     setError('');
     try {
       await starRepo(token, repoOwner, repoName);
-      setIsStarred(true);
+      // Re-verify status from server after action
+      const status = await checkUserStatus(token);
+      setIsStarred(status.repositoryStarred);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -63,7 +64,9 @@ export function SupportProject({ token, onComplete }: SupportProjectProps) {
     setError('');
     try {
       await followUser(token, MAINTAINER_PROFILE);
-      setIsFollowed(true);
+      // Re-verify status from server after action
+      const status = await checkUserStatus(token);
+      setIsFollowed(status.maintainerFollowed);
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -11,6 +11,7 @@ import {
   waitForMergeable, mergePullRequest, verifyMergedPullRequest, verifyCoAuthorTrailer, deleteBranch,
   createIssue, closeIssue, requestPRReview, createRepository, getFileContent
 } from './utils/github';
+import { checkUserStatus } from './utils/api';
 import { cn } from './utils/cn';
 import quickdrawBadge from '../logo/starstruck-default--light-a594e2a027e0.png';
 import yoloBadge from '../logo/yolo-default-be0bbff04951.png';
@@ -28,6 +29,7 @@ import { SupportProject } from './components/SupportProject';
 import { FeatureSelection } from './components/FeatureSelection';
 import { IncreaseStars } from './components/IncreaseStars';
 import { IncreaseFollowers } from './components/IncreaseFollowers';
+import { Dashboard } from './components/Dashboard';
 
 // ─── Constants ───────────────────────────────────────────────────────
 const MAX_ITEMS = 300;
@@ -113,7 +115,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
-  const [appStep, setAppStep] = useState<'welcome' | 'support' | 'features' | 'badges' | 'stars' | 'followers'>('welcome');
+  const [appStep, setAppStep] = useState<'welcome' | 'support' | 'features' | 'badges' | 'stars' | 'followers' | 'dashboard'>('welcome');
   const [showAuth, setShowAuth] = useState(false);
   const [delayMs, setDelayMs] = useState(400);
 
@@ -143,9 +145,26 @@ export default function App() {
     setShowAuth(true);
     if (callbackError) { setOauthError(callbackError); return; }
     setLoading(true);
-    Promise.all([fetchGitHubUser(oauthToken), fetchPrimaryGitHubEmail(oauthToken), fetchAllRepos(oauthToken)]).then(([githubUser, email, repoData]) => {
-      setUser(githubUser); setUserEmail(email); setToken(oauthToken);
-      setRepos(repoData); setAppStep('support');
+    const token = oauthToken!; // We know it's not null due to the guard above
+    Promise.all([fetchGitHubUser(token), fetchPrimaryGitHubEmail(token), fetchAllRepos(token)]).then(([githubUser, email, repoData]) => {
+      setUser(githubUser); setUserEmail(email); setToken(token);
+      setRepos(repoData);
+      
+      // Check user status to determine if returning user with requirements met
+      checkUserStatus(token)
+        .then(status => {
+          // If returning user with all requirements complete, show features; otherwise show support
+          if (!status.isNew && status.requirementsComplete) {
+            setAppStep('features');
+          } else {
+            setAppStep('support');
+          }
+        })
+        .catch((err: Error) => {
+          // If status check fails, default to support
+          console.error('Failed to check user status:', err);
+          setAppStep('support');
+        });
     }).catch((err: Error) => setOauthError(err.message)).finally(() => setLoading(false));
   }, []);
 
@@ -538,6 +557,8 @@ export default function App() {
                 setAppStep('stars');
               } else if (feature === 'followers') {
                 setAppStep('followers');
+              } else if (feature === 'dashboard') {
+                setAppStep('dashboard');
               }
            }} />
         )}
@@ -552,10 +573,16 @@ export default function App() {
            <IncreaseFollowers token={token} user={user} />
         )}
 
+        {/* DASHBOARD */}
+        {appStep === 'dashboard' && token && (
+           <Dashboard token={token} onLogout={disconnect} onBack={() => setAppStep('features')} />
+        )}
+
         {/* STEP 1 */}
         {appStep === 'badges' && step === 1 && (
           <div className="max-w-3xl mx-auto staggered-list text-center">
-            <div className="flex justify-end mb-5">
+            <div className="flex justify-end gap-3 mb-5">
+              <button onClick={() => setAppStep('dashboard')} className="px-6 py-2 rounded-xl bg-purple-500/10 border border-purple-500/30 text-[10px] font-black uppercase tracking-widest text-purple-400 hover:bg-purple-500/20 transition-all">Dashboard</button>
               <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
             </div>
             <div className="glass-card p-6 sm:p-10 lg:p-14 relative overflow-visible">
@@ -629,7 +656,10 @@ export default function App() {
            <div className="max-w-5xl mx-auto space-y-10 text-center">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-gray-500">Choose an achievement workflow</p>
-                <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
+                <div className="flex gap-3">
+                  <button onClick={() => setAppStep('dashboard')} className="px-6 py-2 rounded-xl bg-purple-500/10 border border-purple-500/30 text-[10px] font-black uppercase tracking-widest text-purple-400 hover:bg-purple-500/20 transition-all">Dashboard</button>
+                  <button onClick={disconnect} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-all">Log out</button>
+                </div>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {[
