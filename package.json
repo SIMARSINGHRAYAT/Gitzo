@@ -17,14 +17,14 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
-    "@prisma/client": "^7.10.0",
+    "@prisma/client": "^5.18.0",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vercel/postgres": "^0.10.0",
     "@vitejs/plugin-react": "5.1.1",
-    "prisma": "^8.0.0-rc.12",
+    "prisma": "^5.18.0",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
     "vite": "7.2.4"

@@ -1,1 +1,1 @@
-{"framework": "vite", "buildCommand": "npm run build", "outputDirectory": "dist"}
+{"framework": "vite", "buildCommand": "npx prisma db push --skip-generate && npm run build", "outputDirectory": "dist"}
